@@ -23,7 +23,11 @@
 }
 
 * { box-sizing: border-box; -webkit-text-size-adjust: 100%; }
-input[type=date] { min-width: 0; }
+/* iOS renders the native date control with its own internal layout that
+   ignores width/min-width unless its default appearance is reset first —
+   this is what actually caused it to overflow its container, not just a
+   missing min-width. */
+input[type=date] { min-width: 0; -webkit-appearance: none; appearance: none; min-height: 44px; }
 html { height: 100%; overflow: hidden; }
 body {
   position: fixed;
@@ -59,11 +63,12 @@ input, select, textarea { outline: none; }
 }
 .scroll {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
-  padding: 0 28px 108px;
+  padding: 0 28px 40px;
   overscroll-behavior-y: contain;
 }
 .top-header {
@@ -245,7 +250,13 @@ input, select, textarea { outline: none; }
 .cta-lime { background: var(--lime); color: var(--ink); }
 
 /* ---------- Tab bar ---------- */
-.chrome { position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; }
+/* A normal (non-absolute/fixed) flex child, sized last in the .app column —
+   this is what actually fixed the bottom-edge gap on iOS standalone PWAs:
+   position:absolute/fixed bars are anchored independently of the column's
+   own layout pass, which is flaky with iOS's dynamic viewport sizing. Being
+   a real flex item means its position always exactly matches wherever
+   .app's box actually ends, in the same layout pass. */
+.chrome { flex: none; }
 .tabbar {
   background: #fff;
   border-radius: 0;
