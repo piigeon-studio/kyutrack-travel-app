@@ -34,11 +34,15 @@ input[type=date] { min-width: 0; -webkit-appearance: none; appearance: none; min
    (fine one moment, gap the next, differs between a Safari tab and a
    standalone launch). overflow:hidden on both alone is enough to block
    rubber-band bounce, since .scroll is the only element that can scroll. */
-html, body { height: 100%; overflow: hidden; }
+html, body { height: 100vh; height: 100dvh; overflow: hidden; }
 body {
   margin: 0;
   overscroll-behavior: none;
-  background: var(--paper);
+  /* Matches the nav bar/top header, not the content plane — so if any
+     rounding ever leaves a sliver of body visible at a screen edge (notch /
+     home indicator area in iOS standalone mode), it blends with the bars
+     instead of standing out as a mismatched cream strip. */
+  background: #fff;
   font-family: var(--font);
   -webkit-tap-highlight-color: transparent;
 }
@@ -48,15 +52,17 @@ input, select, textarea { outline: none; }
 
 /* ---------- App shell ---------- */
 .app-frame {
-  height: 100%;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   justify-content: center;
-  background: var(--paper);
+  background: #fff;
 }
 .app {
   width: 100%;
   max-width: 480px;
-  height: 100%;
+  height: 100vh;
+  height: 100dvh;
   background: var(--paper);
   display: flex;
   flex-direction: column;
