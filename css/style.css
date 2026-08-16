@@ -281,12 +281,14 @@ input, select, textarea { outline: none; }
   border-radius: 0;
   box-sizing: border-box;
   display: flex; align-items: center; gap: 10px;
-  /* Height is no longer a flat guess — it's the chip (40px) plus a compact
-     8px cushion on each side, with the actual home-indicator inset (capped
-     at 16px) added on top of that base only where the device needs it. Now
-     that the standalone bottom-edge gap turned out to be the body/bar color
-     mismatch (not env() itself), env() is safe to rely on again. */
-  padding: 8px 22px calc(8px + min(env(safe-area-inset-bottom), 16px));
+  /* Deliberately ignores env(safe-area-inset-bottom) — the bar's content
+     extends into the Home Indicator gesture zone instead of reserving
+     space for it, per explicit request to make the bar as short as
+     possible. Trade-off: taps near the very bottom row can occasionally
+     be swallowed by iOS's swipe-up-to-home gesture instead of reaching
+     the button. Revisit this if that turns out to be a real problem on
+     the device, not just a screenshot judgment. */
+  padding: 8px 22px 8px;
   box-shadow: 0 -4px 18px rgba(15,25,35,.08);
 }
 .tab-item { flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; background: none; border: none; padding: 0; }
