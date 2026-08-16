@@ -70,8 +70,13 @@ input, select, textarea { outline: none; }
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
-  padding: 0 28px 70px;
+  padding: 0 28px 108px;
   overscroll-behavior-y: contain;
+  /* Soft fade near the bottom edge so the last row never looks like it's
+     jammed flush against the nav bar/FAB, whether or not the list has been
+     scrolled yet — independent of exact content length. */
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 56px), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 56px), transparent 100%);
 }
 .top-header {
   flex: none;

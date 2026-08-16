@@ -310,8 +310,9 @@ function renderDashboard() {
 }
 
 function recordRowHtml(r, t) {
+  const swipeable = t && Data.trip.status === 'active';
   const content = `
-  <button class="row-card swipe-content" data-action="openRecordDetail" data-id="${r.id}">
+  <button class="row-card${swipeable ? ' swipe-content' : ''}" data-action="openRecordDetail" data-id="${r.id}">
     <span class="dot" style="background:${r.color}"></span>
     <div style="flex:1;min-width:0">
       <div class="row-title">${escapeHtml(r.title)}</div>
@@ -322,7 +323,7 @@ function recordRowHtml(r, t) {
       ${r.badge ? `<div class="badge${r.type === 'settlement' ? ' badge-done' : ''}">${r.type === 'settlement' ? icon('check', 10) : ''}${escapeHtml(r.badge)}</div>` : ''}
     </div>
   </button>`;
-  if (!t || Data.trip.status !== 'active') return content;
+  if (!swipeable) return content;
   return `
   <div class="swipe-row">
     <div class="swipe-actions">
