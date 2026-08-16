@@ -187,7 +187,7 @@ function saveButtonHtml(label, action, small) {
 function dateTimeRowHtml(f) {
   return `<div class="form-row">
     <div class="field-label">Date</div>
-    <input type="date" value="${f.dateStr}" data-bind="dateStr" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:600 13px/1 var(--font);background:#fff">
+    <input type="date" value="${f.dateStr}" data-bind="dateStr" style="margin-top:9px;width:100%;min-width:0;box-sizing:border-box;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:600 13px/1 var(--font);background:#fff">
   </div>`;
 }
 
@@ -542,8 +542,8 @@ function passFormBody(f) {
       <input type="text" data-bind="name" value="${escapeHtml(f.name || '')}" placeholder="JR Pass 7-Day" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:600 13px/1 var(--font);background:#fff">
     </div>
     ${optionRow('Paid with', paymentAccounts().map(a => chip(a.name, f.accountId === a.id, { action: 'setForm', data: { field: 'accountId', value: a.id } })).join(''))}
-    <div class="form-row"><div class="field-label">Start date</div><input type="date" value="${f.startDate}" data-bind="startDate" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:600 13px/1 var(--font);background:#fff"></div>
-    <div class="form-row"><div class="field-label">End date</div><input type="date" value="${f.endDate}" data-bind="endDate" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:600 13px/1 var(--font);background:#fff"></div>
+    <div class="form-row"><div class="field-label">Start date</div><input type="date" value="${f.startDate}" data-bind="startDate" style="margin-top:9px;width:100%;min-width:0;box-sizing:border-box;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:600 13px/1 var(--font);background:#fff"></div>
+    <div class="form-row"><div class="field-label">End date</div><input type="date" value="${f.endDate}" data-bind="endDate" style="margin-top:9px;width:100%;min-width:0;box-sizing:border-box;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:600 13px/1 var(--font);background:#fff"></div>
     ${colorSwatchRow('Pass color', TRANSPORT_CARD_PALETTE, f.color, 'setForm', 'color')}
     ${saveButtonHtml('Buy pass')}
     <div class="ledger-hint">A real personal expense — cash flow, spending and budget all move now.</div>
