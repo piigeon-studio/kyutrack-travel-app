@@ -28,13 +28,15 @@
    this is what actually caused it to overflow its container, not just a
    missing min-width. */
 input[type=date] { min-width: 0; -webkit-appearance: none; appearance: none; min-height: 44px; }
-html { height: 100%; overflow: hidden; }
+/* html/body are NOT position:fixed — that anchors against Safari's "large"
+   (toolbar-hidden) viewport regardless of whether the toolbar is actually
+   showing, which is exactly the inconsistency behind the bottom-edge gap
+   (fine one moment, gap the next, differs between a Safari tab and a
+   standalone launch). overflow:hidden on both alone is enough to block
+   rubber-band bounce, since .scroll is the only element that can scroll. */
+html, body { height: 100%; overflow: hidden; }
 body {
-  position: fixed;
-  inset: 0;
   margin: 0;
-  height: 100%;
-  overflow: hidden;
   overscroll-behavior: none;
   background: var(--paper);
   font-family: var(--font);
@@ -68,7 +70,7 @@ input, select, textarea { outline: none; }
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
-  padding: 0 28px 40px;
+  padding: 0 28px 70px;
   overscroll-behavior-y: contain;
 }
 .top-header {
