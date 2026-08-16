@@ -669,7 +669,8 @@ async function saveForm() {
 const PAGE_FORM_TITLES = {
   trip: 'New trip', tripInfo: 'Edit trip', account: 'Add credit card', wallet: 'Add transport card',
   newTraveler: 'Add traveler', newCategory: 'Add category', newTransportType: 'Add transport type',
-  editTraveler: 'Rename traveler', editWallet: 'Edit transport card', editPass: 'Edit pass'
+  editTraveler: 'Rename traveler', editWallet: 'Edit transport card', editPass: 'Edit pass',
+  currencyExchange: 'Currency Exchange'
 };
 
 function openPageForm(kind, editId) {
@@ -695,6 +696,9 @@ function openPageForm(kind, editId) {
   } else if (kind === 'editTraveler') {
     const t = Data.travelers.find(x => x.id === editId);
     UI.pageForm = { kind, id: editId, name: t ? t.name : '' };
+  } else if (kind === 'currencyExchange') {
+    const t = Data.trip;
+    UI.pageForm = { kind, homeCurrency: t.homeCurrency || '', exchangeRate: t.exchangeRate || 0 };
   }
   UI.sheet = 'pageForm';
   render();
@@ -726,6 +730,7 @@ function renderPageFormSheet() {
   else if (f.kind === 'editTraveler') body = quickNameFormBody(f, 'e.g. Jason', 'Save name');
   else if (f.kind === 'newCategory') body = quickNameFormBody(f, 'e.g. Entertainment', 'Add category');
   else if (f.kind === 'newTransportType') body = quickNameFormBody(f, 'e.g. Ferry', 'Add transport type');
+  else if (f.kind === 'currencyExchange') body = currencyExchangeFormBody(f);
   return sheetShell(PAGE_FORM_TITLES[f.kind] || 'Edit', body);
 }
 
@@ -771,6 +776,15 @@ function tripInfoFormBody(f) {
   `;
 }
 
+function currencyExchangeFormBody(f) {
+  return `
+    ${pageField('Home currency', 'pf-home-currency', { value: f.homeCurrency, bind: 'homeCurrency', placeholder: 'MYR' })}
+    ${pageField('Exchange rate', 'pf-exchange-rate', { type: 'number', value: f.exchangeRate, bind: 'exchangeRate', min: 0 })}
+    <div class="hint" style="margin-top:6px">How many ${escapeHtml(Data.trip.currency)} equal 1 unit of your home currency — e.g. 1 MYR ≈ 45 JPY. Enter today's rate manually; this app doesn't fetch live rates.</div>
+    ${saveButtonHtml('Save changes', 'savePageForm', true)}
+  `;
+}
+
 function accountFormBody(f) {
   const isWallet = f.type === 'transport_wallet';
   const isEdit = !!f.id;
@@ -794,6 +808,12 @@ async function savePageForm() {
   }
   if (f.kind === 'tripInfo') {
     await updateTrip({ name: f.name, country: f.country, currency: f.currency, timezone: f.timezone, startDate: f.startDate, endDate: f.endDate, totalBudget: Number(f.totalBudget) || 0 });
+    closePageForm();
+    render();
+    return;
+  }
+  if (f.kind === 'currencyExchange') {
+    await updateTrip({ homeCurrency: (f.homeCurrency || '').trim().toUpperCase(), exchangeRate: Number(f.exchangeRate) || 0 });
     closePageForm();
     render();
     return;

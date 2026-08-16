@@ -1,9 +1,13 @@
 /* Money + date/time formatting, all timezone-aware (trip.timezone is authoritative). */
 
-const CURRENCY_SYMBOLS = { JPY: '¥', USD: '$', EUR: '€', GBP: '£', CNY: '¥', TWD: 'NT$', KRW: '₩', HKD: 'HK$', AUD: 'A$', CAD: 'C$' };
+const CURRENCY_SYMBOLS = { JPY: '¥', USD: '$', EUR: '€', GBP: '£', CNY: '¥', TWD: 'NT$', KRW: '₩', HKD: 'HK$', AUD: 'A$', CAD: 'C$', MYR: 'RM', SGD: 'S$' };
 
 function currencySymbol(code) {
   return CURRENCY_SYMBOLS[code] || (code ? code + ' ' : '¥');
+}
+
+function fmtNumberPlain(n) {
+  return Math.abs(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
 }
 
 function fmtMoney(n, currency) {
@@ -21,7 +25,7 @@ function fmtSigned(n, currency) {
     for smaller, spaced-out display. Safe to apply anywhere in the UI —
     never applied to values headed for CSV/plain-text export. */
 function styleCcy(str) {
-  return str.replace(/(NT\$|HK\$|A\$|C\$|[¥$€£₩])/, '<span class="ccy-sym">$1</span>');
+  return str.replace(/(NT\$|HK\$|A\$|C\$|S\$|RM|[¥$€£₩])/, '<span class="ccy-sym">$1</span>');
 }
 function fmtMoneyBig(n, currency) { return styleCcy(fmtMoney(n, currency)); }
 function fmtSignedBig(n, currency) { return styleCcy(fmtSigned(n, currency)); }
@@ -73,10 +77,10 @@ function nowZonedParts(timeZone) {
 
 function greetingText(timeZone) {
   const hour = Number(nowZonedParts(timeZone).time.split(':')[0]);
-  if (hour < 5) return 'Good night';
-  if (hour < 12) return 'Good morning';
-  if (hour < 18) return 'Good afternoon';
-  return 'Good evening';
+  if (hour < 5) return 'Good Night';
+  if (hour < 12) return 'Good Morning';
+  if (hour < 18) return 'Good Afternoon';
+  return 'Good Evening';
 }
 
 function dayLabel(iso, timeZone) {

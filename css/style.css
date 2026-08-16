@@ -230,6 +230,21 @@ input, select, textarea { outline: none; }
     linear-gradient(160deg, #E7FF8F 0%, var(--lime) 55%, #BEE83C 100%);
   box-shadow: 0 8px 18px -10px rgba(155,180,20,.28);
 }
+.calculator-pill {
+  border-radius: 26px;
+  padding: 18px 20px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--card);
+  border: 1px solid rgba(21,35,47,.09);
+}
+.calculator-ccy-tag { font: 800 18px/1 var(--font); color: var(--ink); flex: none; }
+.calculator-swap-btn {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 34px; height: 34px; border-radius: 50%;
+  background: #fff; border: 3px solid var(--paper);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--ink); box-shadow: 0 2px 6px rgba(15,25,35,.18);
+}
 .balance-card-head { display: flex; align-items: center; gap: 8px; }
 .balance-card-icon { width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,.7); color: var(--ink); display: flex; align-items: center; justify-content: center; flex: none; }
 .balance-card-label { font: 700 14px/1 var(--font); color: rgba(21,35,47,.65); }

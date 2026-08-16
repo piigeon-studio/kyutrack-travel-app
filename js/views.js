@@ -93,7 +93,7 @@ function emptyStateHtml(title, message) {
     <div class="card-white empty-state" style="text-align:center;padding:34px 20px">
       <div class="empty-state-badge" style="display:flex;justify-content:center">${logoBadge(42, true)}</div>
       <div class="row-title" style="font-size:15px;margin:14px 0 6px">${escapeHtml(title)}</div>
-      <div class="muted-note">${escapeHtml(message)}</div>
+      ${message ? `<div class="muted-note">${escapeHtml(message)}</div>` : ''}
     </div>`;
 }
 
@@ -117,7 +117,7 @@ function tripsScreenInner() {
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px">
       <span class="screen-title" style="font-size:22px">My Trips</span>
     </div>
-    ${rows || emptyStateHtml('No trips yet', 'Start planning your first trip — set a budget, currency and dates, and every number on the dashboard follows from there.')}
+    ${rows || emptyStateHtml('No trips yet')}
     <button class="cta cta-lime" style="margin-top:14px" data-action="newTrip">
       ${icon('plus', 18)}<span class="cta-label">New trip</span>
     </button>
@@ -222,6 +222,17 @@ function renderDashboard() {
     .slice(0, 4)
     .map(t => rowFor(t, ctx()));
 
+  const hasExchange = !!(trip.homeCurrency && trip.exchangeRate);
+  const cashShowHome = hasExchange && cash && UI.homeCcyShown[cash.id];
+  const wiseShowHome = hasExchange && wise && UI.homeCcyShown[wise.id];
+  const cashDisplay = cashShowHome ? fmtMoneyBig(toHomeCurrency(cashBal, trip), trip.homeCurrency) : fmtMoneyBig(cashBal, trip.currency);
+  const wiseDisplay = wiseShowHome ? fmtMoneyBig(toHomeCurrency(wiseBal, trip), trip.homeCurrency) : fmtMoneyBig(wiseBal, trip.currency);
+
+  const converterAmt = Number(UI.converterAmount) || 0;
+  const converterInCcy = UI.converterInputCcy === 'trip' ? trip.currency : trip.homeCurrency;
+  const converterOutCcy = UI.converterInputCcy === 'trip' ? trip.homeCurrency : trip.currency;
+  const converterOut = hasExchange ? (UI.converterInputCcy === 'trip' ? toHomeCurrency(converterAmt, trip) : toTripCurrency(converterAmt, trip)) : 0;
+
   return `
     <div class="roomy">
     <div style="padding:2px 2px 0">
@@ -234,27 +245,43 @@ function renderDashboard() {
     </div>
 
     <div style="display:flex;gap:14px;margin-top:22px">
-      <button class="balance-card balance-card-cash" data-action="openSettingsSub" data-section="accounts">
+      <button class="balance-card balance-card-cash" data-action="toggleHomeCcy" data-account="${cash ? cash.id : ''}">
         <div class="balance-card-head">
           <span class="balance-card-label balance-card-label-lg">Cash</span>
         </div>
-        <div class="balance-card-amount">${fmtMoneyBig(cashBal, trip.currency)}</div>
+        <div class="balance-card-amount">${cashDisplay}</div>
         <div class="balance-mini-track" style="margin-top:12px">
           <div class="balance-mini-fill" style="width:${pctCashUsed.toFixed(1)}%;background:var(--lime)"></div>
         </div>
         <div class="balance-card-pct">${pctCashUsed.toFixed(0)}% used</div>
       </button>
-      <button class="balance-card balance-card-wise" data-action="openSettingsSub" data-section="accounts">
+      <button class="balance-card balance-card-wise" data-action="toggleHomeCcy" data-account="${wise ? wise.id : ''}">
         <div class="balance-card-head">
           <img src="icons/wise-logo.svg" alt="Wise" style="height:16px;width:auto;display:block">
         </div>
-        <div class="balance-card-amount">${fmtMoneyBig(wiseBal, trip.currency)}</div>
+        <div class="balance-card-amount">${wiseDisplay}</div>
         <div class="balance-mini-track dark" style="margin-top:12px">
           <div class="balance-mini-fill" style="width:${pctWiseUsed.toFixed(1)}%;background:var(--ink)"></div>
         </div>
         <div class="balance-card-pct">${pctWiseUsed.toFixed(0)}% used</div>
       </button>
     </div>
+
+    ${hasExchange ? `
+    <div style="margin-top:16px">
+      <div class="row-sub" style="margin-bottom:10px">1 ${escapeHtml(trip.homeCurrency)} = ${trip.exchangeRate} ${escapeHtml(trip.currency)}</div>
+      <div style="position:relative">
+        <div class="calculator-pill" style="margin-bottom:8px">
+          <input id="converter-input" class="metric-lg" type="text" inputmode="decimal" data-bind="converterAmount" data-bind-target="ui" data-recalc="converter" placeholder="0" value="${UI.converterAmount ? escapeHtml(UI.converterAmount) : ''}" style="flex:1;min-width:0;border:none;background:none;padding:0;box-sizing:border-box">
+          <span class="calculator-ccy-tag">${escapeHtml(converterInCcy)}</span>
+        </div>
+        <div class="calculator-pill">
+          <div id="converter-output" class="metric-lg">${fmtNumberPlain(converterOut)}</div>
+          <span class="calculator-ccy-tag">${escapeHtml(converterOutCcy)}</span>
+        </div>
+        <button data-action="swapConverter" aria-label="Swap direction" class="calculator-swap-btn">${icon('swap', 15)}</button>
+      </div>
+    </div>` : `<div style="margin-top:16px">${emptyStateHtml('Set Your Calculator', 'Settings › Currency Exchange')}</div>`}
 
     ${hasCards ? `
     <div class="card" style="background:var(--sand);margin-top:16px;display:flex;justify-content:space-between;align-items:center">
@@ -307,6 +334,17 @@ function renderDashboard() {
     </div>
     </div>
   `;
+}
+
+/** Live-patches just the converter's output figure while typing — mirrors
+    updateSplitRemaining()'s approach of avoiding a full render() mid-keystroke. */
+function updateConverterOutput() {
+  const trip = Data.trip;
+  if (!trip.exchangeRate) return;
+  const amt = Number(UI.converterAmount) || 0;
+  const converted = UI.converterInputCcy === 'trip' ? toHomeCurrency(amt, trip) : toTripCurrency(amt, trip);
+  const el = document.getElementById('converter-output');
+  if (el) el.textContent = fmtNumberPlain(converted || 0);
 }
 
 function recordRowHtml(r, t) {
@@ -384,7 +422,12 @@ function renderRecords() {
 
 function recordsListInnerHtml() {
   const rows = recordsFilteredRows();
-  if (!rows.length) return emptyStateHtml('No records match', 'Try a different search term or switch filters.');
+  if (!rows.length) {
+    const hasAnyRecords = Data.transactions.some(t => t.type !== 'transport');
+    return hasAnyRecords
+      ? emptyStateHtml('No records match', 'Try a different search term or switch filters.')
+      : emptyStateHtml('No records yet');
+  }
   const groups = [];
   rows.forEach(({ t, r }) => {
     const label = dayLabel(r.occurredAt, Data.trip.timezone);
@@ -451,10 +494,7 @@ function renderTransport() {
           </div>
         </div>`;
       }).join('')}
-    </div>` : `
-      <div class="card-white" style="text-align:center">
-        <div class="muted-note">No transport wallets yet. Add one in Settings › Transport.</div>
-      </div>`}
+    </div>` : emptyStateHtml('Add Your Transport Card', 'Settings › Transport')}
 
     ${passes.length ? `<div class="h-scroll h-scroll-transit">
       ${passes.map(p => {
@@ -558,6 +598,7 @@ function renderSettings() {
   const rows = [
     { key: 'accounts', name: 'Accounts', sub: Data.accounts.filter(a => a.isActive).map(a => a.name).join(' · ') },
     { key: 'categories', name: 'Categories', sub: Data.categories.filter(c => !c.isArchived).map(c => c.name).join(', ') },
+    { key: 'currencyExchange', name: 'Currency Exchange', sub: trip.homeCurrency ? `1 ${trip.homeCurrency} = ${trip.exchangeRate || 0} ${trip.currency}` : 'Not set' },
     { key: 'data', name: 'Data', sub: 'Full backup · CSV · PDF report' },
     { key: 'transport', name: 'Transport', sub: 'Transport card, types, passes' },
     { key: 'travelers', name: 'Travelers', sub: Data.travelers.map(t => t.name).join(', ') },
@@ -768,6 +809,7 @@ function renderSettingsSubSheet() {
   if (s === 'travelers') return settingsSubTravelers();
   if (s === 'categories') return settingsSubCategories();
   if (s === 'accounts') return settingsSubAccounts();
+  if (s === 'currencyExchange') return settingsSubCurrencyExchange();
   if (s === 'transport') return settingsSubTransport();
   if (s === 'data') return settingsSubData();
   return sheetShell('Settings', '');
@@ -786,6 +828,19 @@ function settingsSubTrip() {
     <button class="btn-add" style="margin-top:10px" data-action="openPageForm" data-kind="tripInfo">${icon('edit', 14)}<span>Edit trip details</span></button>
   `;
   return sheetShell('Trip', body);
+}
+
+function settingsSubCurrencyExchange() {
+  const trip = Data.trip;
+  const body = `
+    <div class="card-white" style="margin-top:14px">
+      <div class="row-sub" style="line-height:1.6">
+        ${trip.homeCurrency ? `1 ${escapeHtml(trip.homeCurrency)} = ${trip.exchangeRate || 0} ${escapeHtml(trip.currency)}` : 'No home currency set yet — used for the dashboard converter and balance cards.'}
+      </div>
+    </div>
+    <button class="btn-add" style="margin-top:10px" data-action="openPageForm" data-kind="currencyExchange">${icon('edit', 14)}<span>${trip.homeCurrency ? 'Edit exchange rate' : 'Set up currency exchange'}</span></button>
+  `;
+  return sheetShell('Currency Exchange', body);
 }
 
 function settingsSubTravelers() {

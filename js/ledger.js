@@ -141,6 +141,16 @@ function availableBalance(ledger, accounts) {
   return (cash ? ledger.bal[cash.id] || 0 : 0) + (wise ? ledger.bal[wise.id] || 0 : 0);
 }
 
+/* trip.exchangeRate is stored as "1 unit of trip.homeCurrency = exchangeRate
+   units of trip.currency" (e.g. 1 MYR = 45.45 JPY) — manual entry only, this
+   app has no live-rate source. */
+function toHomeCurrency(tripAmount, trip) {
+  return trip.exchangeRate ? tripAmount / trip.exchangeRate : null;
+}
+function toTripCurrency(homeAmount, trip) {
+  return trip.exchangeRate ? homeAmount * trip.exchangeRate : null;
+}
+
 /** Row descriptor for record lists (Records tab, category detail, transport log). */
 function rowFor(t, ctx) {
   const { accounts, travelers, categories, transportTypes, passes, timezone, currency, selfTravelerId } = ctx;

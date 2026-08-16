@@ -16,7 +16,10 @@ const UI = {
   toast: null,
   confirmDialog: null, // { message, action, confirmLabel, danger }
   quickAddMenu: false,
-  tabTransitionDir: null // 'next' | 'prev' | null — one-shot hint consumed by renderAppShell, cleared after each render
+  tabTransitionDir: null, // 'next' | 'prev' | null — one-shot hint consumed by renderAppShell, cleared after each render
+  homeCcyShown: {}, // accountId -> bool, whether that dashboard balance card is showing home-currency instead of trip-currency
+  converterAmount: '',
+  converterInputCcy: 'trip' // 'trip' | 'home' — which side of the dashboard converter the typed amount is in
 };
 
 const TAB_ORDER = ['dashboard', 'records', 'transport', 'split'];
@@ -120,7 +123,8 @@ document.addEventListener('change', e => {
 function syncBind(e) {
   if (e.target.matches('[data-bind]')) {
     const key = e.target.dataset.bind;
-    const target = e.target.dataset.bindTarget === 'page' ? UI.pageForm : UI.form;
+    const targetKind = e.target.dataset.bindTarget;
+    const target = targetKind === 'page' ? UI.pageForm : (targetKind === 'ui' ? UI : UI.form);
     if (!target) return;
     if (key.indexOf('.') >= 0) {
       const [obj, sub] = key.split('.');
@@ -134,6 +138,7 @@ document.addEventListener('input', syncBind);
 document.addEventListener('change', syncBind);
 document.addEventListener('input', e => {
   if (e.target.matches('[data-recalc="split"]')) updateSplitRemaining();
+  if (e.target.matches('[data-recalc="converter"]')) updateConverterOutput();
 });
 
 function val(id) { const el = document.getElementById(id); return el ? el.value : ''; }
@@ -155,6 +160,23 @@ function dispatch(action, el, ev) {
     case 'openTrip': safe(async () => { await loadTrip(d.id); UI.screen = 'trip'; UI.tab = 'dashboard'; UI.sheet = null; render(); }); break;
     case 'newTrip': openPageForm('trip'); break;
     case 'editTripInfo': openPageForm('tripInfo'); break;
+
+    /* ---- currency exchange ---- */
+    case 'toggleHomeCcy':
+      if (!Data.trip.homeCurrency || !Data.trip.exchangeRate) { showToast('Set your exchange rate in Settings › Currency Exchange'); break; }
+      UI.homeCcyShown = { ...UI.homeCcyShown, [d.account]: !UI.homeCcyShown[d.account] };
+      render();
+      break;
+    case 'swapConverter': {
+      const trip = Data.trip;
+      if (!trip.exchangeRate) break;
+      const amt = Number(UI.converterAmount) || 0;
+      const converted = UI.converterInputCcy === 'trip' ? toHomeCurrency(amt, trip) : toTripCurrency(amt, trip);
+      UI.converterInputCcy = UI.converterInputCcy === 'trip' ? 'home' : 'trip';
+      UI.converterAmount = converted ? String(Math.round(converted * 100) / 100) : '';
+      render();
+      break;
+    }
 
     /* ---- generic sheet control ---- */
     case 'closeSheet':
