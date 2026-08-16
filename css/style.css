@@ -87,8 +87,8 @@ input, select, textarea { outline: none; }
   /* Soft fade near the bottom edge so the last row never looks like it's
      jammed flush against the nav bar/FAB, whether or not the list has been
      scrolled yet — independent of exact content length. */
-  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 56px), transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 56px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 40px), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 40px), transparent 100%);
 }
 .top-header {
   flex: none;
@@ -281,16 +281,16 @@ input, select, textarea { outline: none; }
   border-radius: 0;
   box-sizing: border-box;
   display: flex; align-items: center; gap: 10px;
-  /* Height is no longer a flat guess — it's the chip (46px) plus a compact
-     10px cushion on each side, with the actual home-indicator inset (capped
-     at 22px) added on top of that base only where the device needs it. Now
+  /* Height is no longer a flat guess — it's the chip (40px) plus a compact
+     8px cushion on each side, with the actual home-indicator inset (capped
+     at 16px) added on top of that base only where the device needs it. Now
      that the standalone bottom-edge gap turned out to be the body/bar color
      mismatch (not env() itself), env() is safe to rely on again. */
-  padding: 10px 22px calc(10px + min(env(safe-area-inset-bottom), 22px));
+  padding: 8px 22px calc(8px + min(env(safe-area-inset-bottom), 16px));
   box-shadow: 0 -4px 18px rgba(15,25,35,.08);
 }
 .tab-item { flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; background: none; border: none; padding: 0; }
-.tab-icon-chip { display: flex; align-items: center; justify-content: center; width: 46px; height: 46px; border-radius: 50%; transition: background .15s ease; }
+.tab-icon-chip { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; transition: background .15s ease; }
 .tab-icon-chip.active { background: var(--lime); }
 .center-fab {
   width: 60px; height: 60px; border-radius: 50%;
