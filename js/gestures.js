@@ -50,7 +50,7 @@ document.addEventListener('pointerdown', e => {
   }
 
   const scrollEl = e.target.closest('#scroll-area');
-  if (scrollEl && !e.target.closest('.sheet') && !UI.sheet && !UI.confirmDialog && !UI.quickAddMenu &&
+  if (scrollEl && !e.target.closest('.sheet') && !e.target.closest('.h-scroll') && !UI.sheet && !UI.confirmDialog && !UI.quickAddMenu &&
       UI.screen !== 'trips' && TAB_ORDER.includes(UI.tab)) {
     gesture = { type: 'tab', startX: e.clientX, startY: e.clientY, axis: null };
   }

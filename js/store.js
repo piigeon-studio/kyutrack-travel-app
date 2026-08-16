@@ -171,10 +171,21 @@ async function updateCategory(id, patch) {
 }
 
 async function addAccount(fields) {
-  const a = { id: uid(), tripId: Data.trip.id, type: fields.type, name: fields.name, startingBalance: fields.startingBalance || 0, isActive: true };
+  const a = { id: uid(), tripId: Data.trip.id, type: fields.type, name: fields.name, startingBalance: fields.startingBalance || 0, isActive: true, color: fields.color || null };
   await DB.put('accounts', a);
   Data.accounts.push(a);
   return a;
+}
+function nextTransportCardColor() {
+  const used = Data.accounts.filter(a => a.type === 'transport_wallet').map(a => a.color);
+  const free = TRANSPORT_CARD_PALETTE.find(c => !used.includes(c));
+  return free || TRANSPORT_CARD_PALETTE[used.length % TRANSPORT_CARD_PALETTE.length];
+}
+async function editWallet(id, fields) {
+  const a = Data.accounts.find(x => x.id === id);
+  if (!a) return;
+  Object.assign(a, fields);
+  await DB.put('accounts', a);
 }
 function isAccountReferenced(id) {
   return Data.transactions.some(t => t.accountId === id || t.sourceAccountId === id || t.destinationAccountId === id);
@@ -206,10 +217,21 @@ async function removeTransportType(id) {
 }
 
 async function addPass(fields) {
-  const p = { id: uid(), tripId: Data.trip.id, name: fields.name, purchasePrice: fields.purchasePrice, startDate: fields.startDate, endDate: fields.endDate, status: 'active', notes: fields.notes || '', isArchived: false };
+  const p = { id: uid(), tripId: Data.trip.id, name: fields.name, purchasePrice: fields.purchasePrice, startDate: fields.startDate, endDate: fields.endDate, status: 'active', notes: fields.notes || '', isArchived: false, color: fields.color || nextPassColor() };
   await DB.put('passes', p);
   Data.passes.push(p);
   return p;
+}
+function nextPassColor() {
+  const used = Data.passes.map(p => p.color);
+  const free = TRANSPORT_CARD_PALETTE.find(c => !used.includes(c));
+  return free || TRANSPORT_CARD_PALETTE[used.length % TRANSPORT_CARD_PALETTE.length];
+}
+async function editPass(id, fields) {
+  const p = Data.passes.find(x => x.id === id);
+  if (!p) return;
+  Object.assign(p, fields);
+  await DB.put('passes', p);
 }
 function isPassReferenced(id) { return Data.transactions.some(t => t.passId === id); }
 async function removePass(id) {

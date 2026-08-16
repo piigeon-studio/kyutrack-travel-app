@@ -6,6 +6,7 @@
 const DEFAULT_CATEGORY_COLORS = { Food: '#B79DF7', Shopping: '#D6F55C', Transport: '#9EDDE9', Accommodation: '#F6C7E4', Fees: '#F9887A' };
 const TRAVELER_PALETTE = ['#B79DF7', '#9EDDE9', '#F6C7E4', '#F9887A', '#DDD7CC'];
 const CATEGORY_PALETTE = ['#B79DF7', '#9EDDE9', '#F6C7E4', '#D6F55C', '#F9887A', '#FFD08A', '#8FD9A8', '#A9C7FF', '#E8B4BC', '#F2E28A'];
+const TRANSPORT_CARD_PALETTE = ['#D6F55C', '#15232F', '#0015FF', '#FF00A1', '#8400FF'];
 const SELF_COLOR = '#D6F55C';
 
 /**

@@ -23,9 +23,14 @@
 }
 
 * { box-sizing: border-box; -webkit-text-size-adjust: 100%; }
-html, body {
+html { height: 100%; overflow: hidden; }
+body {
+  position: fixed;
+  inset: 0;
   margin: 0;
   height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
   background: var(--ink);
   font-family: var(--font);
   -webkit-tap-highlight-color: transparent;
@@ -59,7 +64,12 @@ input, select, textarea { outline: none; }
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
-  padding: max(20px, env(safe-area-inset-top)) 28px 108px;
+  padding: 0 28px 108px;
+  overscroll-behavior-y: contain;
+}
+.top-header {
+  flex: none;
+  padding: max(20px, env(safe-area-inset-top)) 28px 0;
 }
 
 /* ---------- Typography helpers ---------- */
@@ -83,7 +93,7 @@ input, select, textarea { outline: none; }
 .header-left { display: flex; align-items: center; gap: 8px; }
 .logo-badge { width: 26px; height: 26px; border-radius: 9px; background: var(--ink); flex: none; display: flex; align-items: center; justify-content: center; }
 .logo-badge img { width: 16px; height: 16px; display: block; }
-.gear-btn { width: 32px; height: 32px; border-radius: 50%; background: var(--sand); color: var(--ink); cursor: pointer; border: none; flex: none; display: flex; align-items: center; justify-content: center; }
+.gear-btn { width: 36px; height: 36px; border-radius: 50%; background: var(--sand); color: var(--ink); cursor: pointer; border: none; flex: none; display: flex; align-items: center; justify-content: center; }
 .icon-btn { border: none; background: var(--sand); cursor: pointer; color: var(--ink); display: flex; align-items: center; justify-content: center; }
 .back-btn { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 
@@ -103,6 +113,80 @@ input, select, textarea { outline: none; }
     linear-gradient(160deg, #1C2E3D 0%, var(--ink) 45%, #0D1620 100%);
   box-shadow: 0 18px 40px -16px rgba(15,25,35,.55);
 }
+.split-hero {
+  border: none;
+  position: relative;
+  overflow: hidden;
+  border-radius: 30px;
+  padding: 24px 22px;
+  background:
+    radial-gradient(130% 160% at 100% -10%, rgba(255,255,255,.4), transparent 55%),
+    radial-gradient(90% 120% at -10% 120%, rgba(255,255,255,.14), transparent 60%),
+    linear-gradient(160deg, #C3EEF5 0%, var(--mint) 55%, #79C7DA 100%);
+  box-shadow: 0 14px 30px -14px rgba(30,110,130,.35);
+}
+.split-hero .row-card { background: rgba(255,255,255,.55); }
+/* ---------- Horizontal card carousel (bleeds to screen edge, snaps centered) ---------- */
+.h-scroll { display: flex; gap: 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; scroll-snap-type: x mandatory; margin: 0 -28px; padding: 6px 0 40px; touch-action: pan-x; }
+.h-scroll::-webkit-scrollbar { display: none; }
+.h-scroll-transit { padding-left: 9vw; padding-right: 9vw; }
+.transit-card-slide { flex: none; width: 82vw; scroll-snap-align: center; }
+.pass-ticket-slide { flex: none; width: 82vw; scroll-snap-align: center; }
+
+/* ---------- Transit card (Transport wallet) ---------- */
+.transit-card { position: relative; overflow: hidden; border-radius: 24px; aspect-ratio: 1.586; box-shadow: 0 14px 30px -14px rgba(15,25,35,.4); }
+.transit-card::before, .pass-ticket::before {
+  content: ''; position: absolute; inset: 0; z-index: 0;
+  background:
+    radial-gradient(130% 160% at 100% -10%, rgba(255,255,255,.22), transparent 55%),
+    radial-gradient(90% 120% at -10% 120%, rgba(255,255,255,.08), transparent 60%);
+}
+.transit-card-decor, .pass-ticket-decor { position: absolute; right: -24px; bottom: -34px; width: 140px; height: 140px; border-radius: 50%; background: rgba(255,255,255,.08); z-index: 0; }
+.transit-card-body { position: relative; z-index: 1; height: 100%; box-sizing: border-box; padding: 20px 22px; display: flex; flex-direction: column; justify-content: space-between; color: #fff; }
+.transit-card-top { display: flex; justify-content: space-between; align-items: center; }
+.transit-card-alert { width: 28px; height: 28px; border-radius: 50%; background: var(--negative); color: #fff; display: flex; align-items: center; justify-content: center; flex: none; box-shadow: 0 2px 8px rgba(194,80,63,.55); }
+.transit-card-label-alert { color: var(--negative) !important; }
+.transit-card-name { font: 800 15px/1 var(--font); letter-spacing: .03em; text-transform: uppercase; color: #fff; }
+.transit-card-label { font: 700 11px/1 var(--font); color: rgba(255,255,255,.55); margin-bottom: 7px; }
+.transit-card-balance { font: 800 32px/1 var(--font); letter-spacing: -.03em; }
+.transit-card-track { height: 7px; border-radius: 4px; background: rgba(255,255,255,.22); overflow: hidden; }
+.transit-card-fill { height: 100%; background: #fff; }
+.transit-card-stats { font: 600 11px/1.3 var(--font); color: rgba(255,255,255,.55); margin-top: 8px; }
+
+/* Light-colored cards (e.g. lime) need dark text/decor instead of white */
+.transit-card.on-light::before {
+  background:
+    radial-gradient(130% 160% at 100% -10%, rgba(255,255,255,.5), transparent 55%),
+    radial-gradient(90% 120% at -10% 120%, rgba(21,35,47,.06), transparent 60%);
+}
+.transit-card.on-light .transit-card-decor { background: rgba(21,35,47,.08); }
+.transit-card.on-light .transit-card-body,
+.transit-card.on-light .transit-card-name { color: var(--ink); }
+.transit-card.on-light .transit-card-label,
+.transit-card.on-light .transit-card-stats { color: rgba(21,35,47,.55); }
+.transit-card.on-light .transit-card-track { background: rgba(21,35,47,.15); }
+.transit-card.on-light .transit-card-fill { background: var(--ink); }
+.transit-card.on-light .cta-lime { background: var(--ink); color: #fff; }
+
+/* ---------- Pass ticket ---------- */
+.pass-ticket { position: relative; overflow: hidden; border-radius: 20px; aspect-ratio: 2.1; box-shadow: 0 14px 30px -14px rgba(15,25,35,.4); }
+.pass-ticket-body { position: relative; z-index: 1; height: 100%; box-sizing: border-box; padding: 18px 20px; display: flex; flex-direction: column; justify-content: space-between; }
+.pass-ticket-dates { font: 700 12px/1.3 var(--font); color: rgba(255,255,255,.8); }
+.pass-ticket-countdown { font: 800 26px/1 var(--font); letter-spacing: -.02em; color: #fff; }
+.pass-ticket .row-title, .pass-ticket .row-amount { color: #fff; }
+.pass-ticket-badge { background: rgba(255,255,255,.22); color: #fff; margin-top: 0; }
+
+.pass-ticket.on-light::before {
+  background:
+    radial-gradient(130% 160% at 100% -10%, rgba(255,255,255,.5), transparent 55%),
+    radial-gradient(90% 120% at -10% 120%, rgba(21,35,47,.06), transparent 60%);
+}
+.pass-ticket.on-light .pass-ticket-decor { background: rgba(21,35,47,.08); }
+.pass-ticket.on-light .row-title, .pass-ticket.on-light .row-amount { color: var(--ink); }
+.pass-ticket.on-light .pass-ticket-dates { color: rgba(21,35,47,.6); }
+.pass-ticket.on-light .pass-ticket-countdown { color: var(--ink); }
+.pass-ticket.on-light .pass-ticket-badge { background: rgba(21,35,47,.12); color: var(--ink); }
+
 .balance-mini-track { height: 6px; border-radius: 4px; overflow: hidden; background: rgba(255,255,255,.15); }
 .balance-mini-track.dark { background: rgba(21,35,47,.15); }
 .balance-mini-fill { height: 6px; border-radius: 4px; }
@@ -124,8 +208,9 @@ input, select, textarea { outline: none; }
   box-shadow: 0 8px 18px -10px rgba(155,180,20,.28);
 }
 .balance-card-head { display: flex; align-items: center; gap: 8px; }
-.balance-card-icon { width: 30px; height: 30px; border-radius: 50%; background: rgba(255,255,255,.7); color: var(--ink); display: flex; align-items: center; justify-content: center; flex: none; }
-.balance-card-label { font: 700 12px/1 var(--font); color: rgba(21,35,47,.65); }
+.balance-card-icon { width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,.7); color: var(--ink); display: flex; align-items: center; justify-content: center; flex: none; }
+.balance-card-label { font: 700 14px/1 var(--font); color: rgba(21,35,47,.65); }
+.balance-card-label-lg { font-size: 18px; font-weight: 800; }
 .balance-card-amount { font: 800 21px/1 var(--font); letter-spacing: -.02em; color: var(--ink); margin-top: 12px; }
 .balance-card-pct { font: 700 11px/1 var(--font); color: rgba(21,35,47,.55); margin-top: 7px; }
 
@@ -147,6 +232,8 @@ input, select, textarea { outline: none; }
 .filter-scroll { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 14px; }
 .filter-chip { flex: none; border-radius: 20px; padding: 8px 13px; font: 700 12px/1 var(--font); cursor: pointer; border: none; background: #fff; color: var(--ink); }
 .filter-chip.active { background: var(--ink); color: #fff; }
+.color-swatch { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; flex: none; padding: 0; box-sizing: border-box; }
+.color-swatch.active { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--ink); transform: scale(1.1); }
 
 /* ---------- Avatar ---------- */
 .avatar { border-radius: 50%; font: 800 11px/26px var(--font); text-align: center; color: var(--ink); flex: none; }
@@ -159,18 +246,24 @@ input, select, textarea { outline: none; }
 .cta-lime { background: var(--lime); color: var(--ink); }
 
 /* ---------- Tab bar ---------- */
-.chrome { position: absolute; left: 24px; right: 24px; bottom: max(24px, calc(env(safe-area-inset-bottom) + 10px)); z-index: 5; }
-.tabbar { background: linear-gradient(180deg, #21343F 0%, var(--ink) 55%, #101B24 100%); border-radius: 31px; height: 62px; display: flex; align-items: center; padding: 0 8px; box-shadow: 0 10px 22px -14px rgba(15,25,35,.4); }
+.chrome { position: absolute; left: 40px; right: 40px; bottom: max(24px, calc(env(safe-area-inset-bottom) + 10px)); z-index: 5; }
+.tabbar { background: linear-gradient(180deg, #21343F 0%, var(--ink) 55%, #101B24 100%); border-radius: 31px; height: 62px; display: flex; align-items: center; padding: 0 10px; box-shadow: 0 10px 22px -14px rgba(15,25,35,.4); }
 .tab-item { flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; background: none; border: none; padding: 6px 0; }
+.tab-icon-chip { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; transition: background .15s ease; }
+.tab-icon-chip.active { background: rgba(255,255,255,.14); }
 .center-fab {
-  width: 42px; height: 42px; border-radius: 50%; background: var(--lime); color: var(--ink);
+  width: 60px; height: 60px; border-radius: 50%;
+  background: var(--lime);
+  color: var(--ink);
   border: none; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  margin-top: -45px;
+  box-shadow: 0 0 10px 2px rgba(214,245,92,.4), 0 0 18px 5px rgba(214,245,92,.18);
 }
-.center-fab:disabled { background: var(--sand-deep); color: rgba(21,35,47,.45); cursor: default; }
+.center-fab:disabled { background: var(--sand-deep); color: rgba(21,35,47,.45); cursor: default; box-shadow: none; }
 
 /* ---------- Sheets ---------- */
 .scrim { position: absolute; inset: 0; background: rgba(21,35,47,.5); z-index: 10; }
-.sheet { position: absolute; left: 0; right: 0; bottom: 0; height: 85vh; height: 85dvh; overflow-y: auto; background: var(--paper); border-radius: 34px 34px 0 0; padding: 18px 20px calc(22px + env(safe-area-inset-bottom)); z-index: 11; box-sizing: border-box; }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; height: 85vh; height: 85dvh; overflow-y: auto; overflow-x: hidden; background: var(--paper); border-radius: 34px 34px 0 0; padding: 18px 20px calc(22px + env(safe-area-inset-bottom)); z-index: 11; box-sizing: border-box; }
 .sheet-header { display: flex; justify-content: space-between; align-items: center; }
 .sheet-title { font: 800 17px/1 var(--font); letter-spacing: -.02em; color: var(--ink); }
 .close-btn { width: 30px; height: 30px; border-radius: 50%; background: var(--sand); color: var(--ink); cursor: pointer; border: none; display: flex; align-items: center; justify-content: center; }

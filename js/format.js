@@ -71,6 +71,14 @@ function nowZonedParts(timeZone) {
   return utcIsoToZonedParts(new Date().toISOString(), timeZone);
 }
 
+function greetingText(timeZone) {
+  const hour = Number(nowZonedParts(timeZone).time.split(':')[0]);
+  if (hour < 5) return 'Good night';
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
 function dayLabel(iso, timeZone) {
   const { date } = utcIsoToZonedParts(iso, timeZone);
   const [y, m, d] = date.split('-').map(Number);
@@ -93,6 +101,28 @@ function daysLeft(endDate, timeZone) {
   const today = nowZonedParts(timeZone).date;
   const d = daysBetween(today, endDate);
   return d;
+}
+
+function relativeDayLabel(iso, timeZone) {
+  const { date } = utcIsoToZonedParts(iso, timeZone);
+  const today = nowZonedParts(timeZone).date;
+  const d = daysBetween(date, today);
+  if (d === 0) return 'Today';
+  if (d === 1) return 'Yesterday';
+  if (d > 1) return d + ' days ago';
+  return dayLabel(iso, timeZone);
+}
+
+function passCountdownLabel(startDate, endDate, timeZone) {
+  const today = nowZonedParts(timeZone).date;
+  if (today < startDate) {
+    const d = daysBetween(today, startDate);
+    return `Starts in ${d} day${d === 1 ? '' : 's'}`;
+  }
+  const d = daysLeft(endDate, timeZone);
+  if (d < 0) return 'Expired';
+  if (d === 0) return 'Last day';
+  return `${d} day${d === 1 ? '' : 's'} left`;
 }
 
 function uid() {

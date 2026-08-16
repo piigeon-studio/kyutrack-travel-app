@@ -41,14 +41,50 @@ function screenHeader(title, subtitle) {
         <div class="screen-title">${escapeHtml(title)}</div>
         ${subtitle ? `<div class="row-sub" style="font-size:12px;margin-top:7px">${subtitle}</div>` : ''}
       </div>
-      <button class="gear-btn" style="flex:none" data-action="goSettings">${icon('gear', 16)}</button>
+      <button class="gear-btn" style="flex:none" data-action="goSettings">${icon('gear', 18)}</button>
     </div>`;
+}
+
+/* Persistent, non-scrolling header shown above .scroll for every tab —
+   keeps title/logo pinned in place while the tab's content scrolls beneath it. */
+function topHeaderHtml() {
+  if (UI.tab === 'dashboard') {
+    return `
+    <div class="header-row" style="padding-bottom:24px">
+      <div class="header-left">
+        <button style="border:none;background:none;cursor:pointer;padding:0;display:flex" data-action="goTrips">
+          ${logoBadge(34, true)}
+        </button>
+        <span class="wordmark">${greetingText(Data.trip.timezone)}</span>
+      </div>
+      <button class="gear-btn" data-action="goSettings">${icon('gear', 18)}</button>
+    </div>`;
+  }
+  if (UI.tab === 'records') {
+    const L = ledger();
+    return screenHeader('Records', `${Data.transactions.filter(t => t.type !== 'transport').length} records · ${fmtMoney(L.mySpending, Data.trip.currency)} of my spending`);
+  }
+  if (UI.tab === 'transport') {
+    const trips = Data.transactions.filter(t => t.type === 'transport');
+    return screenHeader('Transport', `${trips.length} journeys logged`);
+  }
+  if (UI.tab === 'split') {
+    return screenHeader('Split', 'Only debts involving you');
+  }
+  if (UI.tab === 'settings') {
+    return `
+    <div style="padding:6px 0 4px">
+      <div class="screen-title">Settings</div>
+      <div class="row-sub" style="font-size:12px;margin-top:7px">Scoped to ${escapeHtml(Data.trip.name)}</div>
+    </div>`;
+  }
+  return '';
 }
 
 function logoBadge(size, dark) {
   const px = size || 26;
-  return `<div class="logo-badge" style="width:${px}px;height:${px}px;border-radius:${Math.round(px*0.34)}px;background:${dark ? 'var(--ink)' : 'var(--sand)'}">
-    <img src="icons/wordmark-lime.png" alt="kyu" style="width:${Math.round(px*0.62)}px;height:auto"/>
+  return `<div class="logo-badge" style="width:${px}px;height:${px}px;border-radius:${Math.round(px*0.34)}px;background:${dark ? 'var(--lime)' : 'var(--sand)'}">
+    <img src="icons/wordmark-ink.png" alt="kyu" style="width:${Math.round(px*0.62)}px;height:auto"/>
   </div>`;
 }
 
@@ -112,6 +148,7 @@ function renderAppShell() {
 
   return `
   <div class="app">
+    <div class="top-header">${topHeaderHtml()}</div>
     <div class="scroll" id="scroll-area"><div class="tab-content ${dirClass}">${content}</div></div>
     <div class="chrome">
       ${tabbarHtml()}
@@ -135,8 +172,8 @@ function tabbarHtml() {
   const tabBtn = t => {
     const active = UI.tab === t.key;
     const color = active ? 'var(--lime)' : 'rgba(255,255,255,.42)';
-    return `<button class="tab-item" style="color:${color}" data-action="tab" data-tab="${t.key}" aria-label="${t.label}">
-      ${icon(t.ic, 22)}
+    return `<button class="tab-item" data-action="tab" data-tab="${t.key}" aria-label="${t.label}">
+      <span class="tab-icon-chip${active ? ' active' : ''}" style="color:${color}">${icon(t.ic, 24)}</span>
     </button>`;
   };
   const centerDisabled = Data.trip.status !== 'active' || !!UI.sheet;
@@ -145,7 +182,7 @@ function tabbarHtml() {
     ${left.map(tabBtn).join('')}
     <div class="tab-item">
       <button class="center-fab" data-action="quickAdd" aria-label="Add" ${centerDisabled ? 'disabled' : ''}>
-        ${icon('plus', 22)}
+        ${icon('plus', 24)}
       </button>
     </div>
     ${right.map(tabBtn).join('')}
@@ -187,14 +224,6 @@ function renderDashboard() {
 
   return `
     <div class="roomy">
-    <div class="header-row" style="padding-bottom:24px">
-      <button class="header-left" style="border:none;background:none;cursor:pointer;padding:0" data-action="goTrips">
-        ${logoBadge(26, true)}
-        <span class="wordmark">${escapeHtml(trip.name)}</span>
-      </button>
-      <button class="gear-btn" data-action="goSettings">${icon('gear', 16)}</button>
-    </div>
-
     <div style="padding:2px 2px 0">
       <div class="section-label">Total balance</div>
       <div class="hero-amount" style="margin-top:12px;font-size:52px">${fmtMoneyBig(available, trip.currency)}</div>
@@ -207,8 +236,7 @@ function renderDashboard() {
     <div style="display:flex;gap:14px;margin-top:22px">
       <button class="balance-card balance-card-cash" data-action="openSettingsSub" data-section="accounts">
         <div class="balance-card-head">
-          <span class="balance-card-icon">${icon('wallet', 15)}</span>
-          <span class="balance-card-label">Cash</span>
+          <span class="balance-card-label balance-card-label-lg">Cash</span>
         </div>
         <div class="balance-card-amount">${fmtMoneyBig(cashBal, trip.currency)}</div>
         <div class="balance-mini-track" style="margin-top:12px">
@@ -218,8 +246,7 @@ function renderDashboard() {
       </button>
       <button class="balance-card balance-card-wise" data-action="openSettingsSub" data-section="accounts">
         <div class="balance-card-head">
-          <span class="balance-card-icon">${icon('card', 15)}</span>
-          <span class="balance-card-label">Wise</span>
+          <img src="icons/wise-logo.svg" alt="Wise" style="height:16px;width:auto;display:block">
         </div>
         <div class="balance-card-amount">${fmtMoneyBig(wiseBal, trip.currency)}</div>
         <div class="balance-mini-track dark" style="margin-top:12px">
@@ -312,6 +339,9 @@ function recordsMatch(t, r) {
   if (UI.recordsFilter !== 'All') {
     if (UI.recordsFilter === 'Split') { if (!(t.splitMode === 'full_user_paid' || t.splitMode === 'self_share_other_paid')) return false; }
     else if (UI.recordsFilter === 'Card') { const acc = Data.accounts.find(a => a.id === t.accountId); if (!acc || acc.type !== 'credit_card') return false; }
+    else if (UI.recordsFilter === 'Top up') { if (!(t.type === 'transfer' && t.subtype === 'top_up')) return false; }
+    else if (UI.recordsFilter === 'Pass') { if (t.type !== 'pass_purchase') return false; }
+    else if (UI.recordsFilter === 'Settlement') { if (t.type !== 'settlement') return false; }
     else { const cat = Data.categories.find(c => c.id === t.categoryId); if (!cat || cat.name !== UI.recordsFilter) return false; }
   }
   if (UI.recordsSearch) {
@@ -334,10 +364,9 @@ function recordsFilteredRows() {
 function renderRecords() {
   const L = ledger();
   const cats = Data.categories.filter(c => !c.isArchived);
-  const filters = ['All', ...cats.map(c => c.name), 'Split', 'Card'];
+  const filters = ['All', ...cats.map(c => c.name), 'Split', 'Card', 'Top up', 'Pass', 'Settlement'];
   return `
     <div class="roomy">
-    ${screenHeader('Records', `${Data.transactions.filter(t => t.type !== 'transport').length} records · ${fmtMoney(L.mySpending, Data.trip.currency)} of my spending`)}
     <div class="field" style="margin-top:0;margin-bottom:14px">
       <div style="position:relative">
         <span style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:rgba(21,35,47,.4)">${icon('search', 16)}</span>
@@ -386,47 +415,70 @@ function renderTransport() {
   const c = ctx();
 
   return `
-    ${screenHeader('Transport', `${trips.length} journeys logged`)}
-
-    ${wallets.map(w => {
-      const toppedUp = Data.transactions
-        .filter(t => t.status !== 'voided' && ((t.type === 'transfer' && t.subtype === 'top_up' && t.destinationAccountId === w.id) || (t.type === 'funding' && t.accountId === w.id)))
-        .reduce((a, t) => a + t.amount, 0);
-      const walletBal = L.bal[w.id] || 0;
-      const pctUsed = toppedUp > 0 ? Math.min(100, Math.max(0, (toppedUp - walletBal) / toppedUp * 100)) : 0;
-      return `
-      <div class="hero-card hero-card-ink" style="margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div class="section-label" style="color:rgba(255,255,255,.5)">${escapeHtml(w.name)} balance</div>
-          <button class="cta-lime" style="border-radius:20px;padding:9px 14px;border:none;cursor:pointer" data-action="openTopUp" data-wallet-id="${w.id}">
-            <span class="cta-label" style="font-size:12px">Top up</span>
-          </button>
-        </div>
-        <div class="hero-amount" style="color:#fff;margin-top:8px">${fmtMoneyBig(walletBal, Data.trip.currency)}</div>
-        <div class="balance-mini-track" style="margin-top:16px">
-          <div class="balance-mini-fill" style="width:${pctUsed.toFixed(1)}%;background:var(--lime)"></div>
-        </div>
-        <div class="row-sub" style="margin-top:9px;color:rgba(255,255,255,.5)">${pctUsed.toFixed(0)}% used · Topped up ${fmtMoney(toppedUp, Data.trip.currency)} total</div>
-      </div>`;
-    }).join('') || `
+    ${wallets.length ? `<div class="h-scroll h-scroll-transit">
+      ${wallets.map(w => {
+        const toppedUp = Data.transactions
+          .filter(t => t.status !== 'voided' && ((t.type === 'transfer' && t.subtype === 'top_up' && t.destinationAccountId === w.id) || (t.type === 'funding' && t.accountId === w.id)))
+          .reduce((a, t) => a + t.amount, 0);
+        const walletBal = L.bal[w.id] || 0;
+        const pctUsed = toppedUp > 0 ? Math.min(100, Math.max(0, (toppedUp - walletBal) / toppedUp * 100)) : 0;
+        const onLight = w.color === TRANSPORT_CARD_PALETTE[0];
+        const lowBalance = walletBal < 300;
+        return `
+        <div class="transit-card-slide">
+          <div class="transit-card${onLight ? ' on-light' : ''}" style="background:${w.color || 'var(--ink)'}">
+            <div class="transit-card-decor"></div>
+            <div class="transit-card-body">
+              <div class="transit-card-top">
+                <span class="transit-card-name">${escapeHtml(w.name)}</span>
+                <button class="cta-lime" style="border-radius:18px;padding:7px 12px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center" data-action="openTopUp" data-wallet-id="${w.id}">
+                  <span class="cta-label" style="font-size:11px">Top up</span>
+                </button>
+              </div>
+              <div>
+                <div class="transit-card-label${lowBalance ? ' transit-card-label-alert' : ''}">${lowBalance ? 'Low balance' : 'Balance'}</div>
+                <div style="display:flex;align-items:center;gap:9px">
+                  <div class="transit-card-balance">${fmtMoneyBig(walletBal, Data.trip.currency)}</div>
+                  ${lowBalance ? `<span class="transit-card-alert" title="Low balance — top up soon">${icon('topUpReminder', 16)}</span>` : ''}
+                </div>
+              </div>
+              <div>
+                <div class="transit-card-track"><div class="transit-card-fill" style="width:${pctUsed.toFixed(1)}%"></div></div>
+                <div class="transit-card-stats">${pctUsed.toFixed(0)}% used · Topped up ${fmtMoney(toppedUp, Data.trip.currency)} total</div>
+              </div>
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : `
       <div class="card-white" style="text-align:center">
         <div class="muted-note">No transport wallets yet. Add one in Settings › Transport.</div>
       </div>`}
 
-    ${passes.map(p => `
-      <div class="card" style="background:var(--lilac);margin-top:10px">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span class="row-title" style="font-size:14px">${escapeHtml(p.name)}</span>
-          <span class="badge" style="background:rgba(255,255,255,.6);margin-top:0">${p.status === 'active' ? 'Active' : 'Inactive'}</span>
+    ${passes.length ? `<div class="h-scroll h-scroll-transit">
+      ${passes.map(p => {
+        const onLight = p.color === TRANSPORT_CARD_PALETTE[0];
+        return `
+      <div class="pass-ticket-slide">
+        <div class="pass-ticket${onLight ? ' on-light' : ''}" style="background:${p.color || 'var(--lilac)'}">
+          <div class="pass-ticket-decor"></div>
+          <div class="pass-ticket-body">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span class="row-title" style="font-size:15px">${escapeHtml(p.name)}</span>
+              <span class="badge pass-ticket-badge">${p.status === 'active' ? 'Active' : 'Inactive'}</span>
+            </div>
+            <div class="pass-ticket-countdown">${passCountdownLabel(p.startDate, p.endDate, Data.trip.timezone)}</div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-end">
+              <span class="pass-ticket-dates">${escapeHtml(p.startDate)} – ${escapeHtml(p.endDate)}</span>
+              <span class="row-amount">${fmtMoneyBig(p.purchasePrice, Data.trip.currency)}</span>
+            </div>
+          </div>
         </div>
-        <div style="display:flex;justify-content:space-between;padding:7px 0;margin-top:14px">
-          <span class="row-sub" style="opacity:.8">Purchase price</span>
-          <span class="row-title" style="font-size:12px">${fmtMoneyBig(p.purchasePrice, Data.trip.currency)}</span>
-        </div>
-        <div class="row-sub" style="margin-top:4px">${escapeHtml(p.startDate)} – ${escapeHtml(p.endDate)}</div>
-      </div>`).join('')}
+      </div>`;
+      }).join('')}
+    </div>` : ''}
 
-    <div style="margin-top:22px" class="section-label">Trip log</div>
+    <div style="margin-top:2px" class="section-label">Trip log</div>
     <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
       ${trips.length ? trips.map(t => {
         const r = rowFor(t, c);
@@ -470,16 +522,14 @@ function renderSplit() {
         <span class="avatar" style="width:26px;height:26px;background:${t.color}">${escapeHtml(t.name[0])}</span>
         <div style="flex:1;min-width:0">
           <div class="row-title">${escapeHtml(r.title)}</div>
-          <div class="row-sub" style="margin-top:4px">${escapeHtml(t.name)} owes ${fmtMoney(row.owed, Data.trip.currency)}</div>
+          <div class="row-sub" style="margin-top:4px">${escapeHtml(t.name)} owes ${fmtMoney(row.owed, Data.trip.currency)} · ${relativeDayLabel(r.occurredAt, Data.trip.timezone)}</div>
         </div>
         ${Data.trip.status === 'active' ? `<button class="chip" style="background:var(--ink);color:#fff;border-color:var(--ink)" data-action="openSettlementFor" data-traveler-id="${t.id}" data-amount="${row.owed}">Collect</button>` : ''}
       </div>`;
     }));
 
   return `
-    ${screenHeader('Split', 'Only debts involving you')}
-
-    <div class="card" style="background:var(--mint)">
+    <div class="split-hero">
       <div class="section-label" style="color:rgba(21,35,47,.55)">You should receive</div>
       <div class="metric-lg" style="margin-top:9px">${fmtMoneyBig(recvTotal, Data.trip.currency)}</div>
       <div style="display:flex;flex-direction:column;gap:7px;margin-top:14px">
@@ -495,7 +545,7 @@ function renderSplit() {
 
     <div style="margin-top:22px" class="section-label">Settlement history</div>
     <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
-      ${history.length ? history.map(t => { const r = rowFor(t, c); return recordRowHtml(r); }).join('') : `<div class="muted-note" style="padding:6px 0">No settlements yet.</div>`}
+      ${history.length ? history.map(t => { const r = rowFor(t, c); const rDated = { ...r, sub: r.sub + ' · ' + relativeDayLabel(r.occurredAt, Data.trip.timezone) }; return recordRowHtml(rDated); }).join('') : `<div class="muted-note" style="padding:6px 0">No settlements yet.</div>`}
     </div>
   `;
 }
@@ -505,18 +555,14 @@ function renderSplit() {
 function renderSettings() {
   const trip = Data.trip;
   const rows = [
-    { key: 'trip', name: 'Trip', sub: 'Dates, timezone, budget' },
-    { key: 'travelers', name: 'Travelers', sub: Data.travelers.map(t => t.name).join(', ') },
-    { key: 'categories', name: 'Categories', sub: Data.categories.filter(c => !c.isArchived).map(c => c.name).join(', ') },
     { key: 'accounts', name: 'Accounts', sub: Data.accounts.filter(a => a.isActive).map(a => a.name).join(' · ') },
+    { key: 'categories', name: 'Categories', sub: Data.categories.filter(c => !c.isArchived).map(c => c.name).join(', ') },
+    { key: 'data', name: 'Data', sub: 'Full backup · CSV · PDF report' },
     { key: 'transport', name: 'Transport', sub: 'Transport card, types, passes' },
-    { key: 'data', name: 'Data', sub: 'Full backup · CSV · PDF report' }
+    { key: 'travelers', name: 'Travelers', sub: Data.travelers.map(t => t.name).join(', ') },
+    { key: 'trip', name: 'Trip', sub: 'Dates, timezone, budget' }
   ];
   return `
-    <div style="padding:6px 0 18px">
-      <div class="screen-title">Settings</div>
-      <div class="row-sub" style="font-size:12px;margin-top:7px">Scoped to ${escapeHtml(trip.name)}</div>
-    </div>
     <div class="grouped-list" style="margin-top:6px">
       ${rows.map(r => `
         <button class="grouped-row" data-action="openSettingsSub" data-section="${r.key}">
@@ -814,7 +860,8 @@ function settingsSubTransport() {
     <div class="section-label" style="margin-top:4px">Transport card</div>
     <div class="grouped-list" style="margin-top:10px">
       ${Data.accounts.filter(a => a.type === 'transport_wallet').map(a => `
-        <div class="grouped-row" style="cursor:default">
+        <div class="grouped-row" style="cursor:pointer" data-action="openPageForm" data-kind="editWallet" data-id="${a.id}">
+          <span class="dot" style="background:${a.color || 'var(--ink)'}"></span>
           <span class="row-title" style="flex:1">${escapeHtml(a.name)}</span>
           <span class="row-amount" style="margin-right:8px">${fmtMoneyBig(L.bal[a.id] || 0, Data.trip.currency)}</span>
           <button data-action="removeAccount" data-id="${a.id}" class="chip small danger">Remove</button>
@@ -825,7 +872,8 @@ function settingsSubTransport() {
     <div class="section-label" style="margin-top:20px">Passes</div>
     <div class="grouped-list" style="margin-top:10px">
       ${Data.passes.map(p => `
-        <div class="grouped-row" style="cursor:default">
+        <div class="grouped-row" style="cursor:pointer" data-action="openPageForm" data-kind="editPass" data-id="${p.id}">
+          <span class="dot" style="background:${p.color || 'var(--lilac)'}"></span>
           <div style="flex:1"><div class="row-title">${escapeHtml(p.name)}${p.isArchived ? ' (archived)' : ''}</div><div class="row-sub" style="margin-top:4px">${escapeHtml(p.startDate)} – ${escapeHtml(p.endDate)} · ${p.status}</div></div>
           <span class="row-amount" style="margin-right:8px">${fmtMoneyBig(p.purchasePrice, Data.trip.currency)}</span>
           <button data-action="removePass" data-id="${p.id}" class="chip small danger">Remove</button>

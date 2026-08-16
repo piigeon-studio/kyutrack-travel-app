@@ -24,6 +24,8 @@ function availablePasses() { return Data.passes.filter(p => !p.isArchived); }
 
 /** Center nav button: opens a chooser between the two record kinds users add most often. */
 function quickAdd() {
+  if (UI.tab === 'records') { quickAddPick('expense'); return; }
+  if (UI.tab === 'transport') { quickAddPick('transport'); return; }
   UI.quickAddMenu = true;
   render();
 }
@@ -71,7 +73,7 @@ function openForm(kind, editId, prefill) {
   } else if (kind === 'adjustment') {
     UI.form = { ...base, accountId: (adjustableAccounts()[0] || {}).id, sign: 1, reason: '' };
   } else if (kind === 'pass') {
-    UI.form = { ...base, name: '', accountId: (paymentAccounts()[0] || {}).id, startDate: Data.trip.startDate, endDate: Data.trip.endDate };
+    UI.form = { ...base, name: '', accountId: (paymentAccounts()[0] || {}).id, startDate: Data.trip.startDate, endDate: Data.trip.endDate, color: nextPassColor() };
   }
   UI.sheet = 'form';
   render();
@@ -96,7 +98,7 @@ function hydrateForm(kind, t) {
       payMode: t.coveredByPass ? 'pass' : (isTraveler ? 'traveler' : 'account'), accountId: t.accountId || null, passId: t.passId || (availablePasses()[0] || {}).id || null,
       payerTravelerId: t.payerTravelerId || null, splitOn: isSplit, taxMode: t.taxMode || 'percent', taxValue: t.taxValue || 10, subs: subsFromArray(t.subs), included: isSplit ? (t.subs || []).map(s => s.travelerId) : [self.id] };
   }
-  if (kind === 'settlement') return { ...base, direction: t.direction, travelerId: t.travelerId, accountId: t.accountId };
+  if (kind === 'settlement') return { ...base, direction: t.direction, travelerId: t.travelerId, accountId: t.accountId, originalAmount: t.amount, originalTravelerId: t.travelerId, originalDirection: t.direction };
   if (kind === 'topup') return { ...base, sourceAccountId: t.sourceAccountId, destinationAccountId: t.destinationAccountId, feeAmount: t.feeAmount || 0 };
   if (kind === 'funding') return { ...base, accountId: t.accountId };
   if (kind === 'transfer') return { ...base, sourceAccountId: t.sourceAccountId, destinationAccountId: t.destinationAccountId, feeAmount: t.feeAmount || 0 };
@@ -122,6 +124,14 @@ function optionRow(label, options) {
   return `<div class="form-row">
     <div class="field-label">${escapeHtml(label)}</div>
     <div class="chip-row" style="margin-top:9px">${options}</div>
+  </div>`;
+}
+
+function colorSwatchRow(label, palette, selected, action, field) {
+  const swatches = palette.map(c => `<button type="button" class="color-swatch${c === selected ? ' active' : ''}" style="background:${c}" data-action="${action}" data-field="${field}" data-value="${c}" aria-label="${c}"></button>`).join('');
+  return `<div class="form-row">
+    <div class="field-label">${escapeHtml(label)}</div>
+    <div class="chip-row" style="margin-top:9px;gap:10px;padding:8px">${swatches}</div>
   </div>`;
 }
 
@@ -407,9 +417,18 @@ function transportFormBody(f) {
 
 /* ---- Settlement ---- */
 
+// When editing an existing settlement, Data.transactions still holds its old amount,
+// so L.recv already has that amount netted out — add it back to get the balance as it
+// stood before this settlement, which is what the user should be free to adjust within.
+function settlementOpenBalance(f, L) {
+  const raw = f.travelerId ? (L.recv[f.travelerId] || 0) : 0;
+  const editingSameDebt = f.editingId && f.travelerId === f.originalTravelerId && f.direction === f.originalDirection;
+  return raw + (editingSameDebt ? (f.originalAmount || 0) : 0);
+}
+
 function settlementFormBody(f) {
   const L = ledger();
-  const open = f.travelerId ? (L.recv[f.travelerId] || 0) : 0;
+  const open = settlementOpenBalance(f, L);
   return `
     <div class="form-row">
       <div class="field-label">They paid me</div>
@@ -523,12 +542,21 @@ function passFormBody(f) {
       <input type="text" data-bind="name" value="${escapeHtml(f.name || '')}" placeholder="JR Pass 7-Day" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:600 13px/1 var(--font);background:#fff">
     </div>
     ${optionRow('Paid with', paymentAccounts().map(a => chip(a.name, f.accountId === a.id, { action: 'setForm', data: { field: 'accountId', value: a.id } })).join(''))}
-    <div class="form-row" style="display:flex;gap:10px">
-      <div style="flex:1;min-width:0"><div class="field-label">Start date</div><input type="date" value="${f.startDate}" data-bind="startDate" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:600 13px/1 var(--font);background:#fff"></div>
-      <div style="flex:1;min-width:0"><div class="field-label">End date</div><input type="date" value="${f.endDate}" data-bind="endDate" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:600 13px/1 var(--font);background:#fff"></div>
-    </div>
+    <div class="form-row"><div class="field-label">Start date</div><input type="date" value="${f.startDate}" data-bind="startDate" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:600 13px/1 var(--font);background:#fff"></div>
+    <div class="form-row"><div class="field-label">End date</div><input type="date" value="${f.endDate}" data-bind="endDate" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:600 13px/1 var(--font);background:#fff"></div>
+    ${colorSwatchRow('Pass color', TRANSPORT_CARD_PALETTE, f.color, 'setForm', 'color')}
     ${saveButtonHtml('Buy pass')}
     <div class="ledger-hint">A real personal expense — cash flow, spending and budget all move now.</div>
+  `;
+}
+
+function passEditFormBody(f) {
+  return `
+    ${pageField('Pass name', 'pf-name', { value: f.name })}
+    ${pageField('Start date', 'pf-start', { type: 'date', value: f.startDate, bind: 'startDate' })}
+    ${pageField('End date', 'pf-end', { type: 'date', value: f.endDate, bind: 'endDate' })}
+    ${colorSwatchRow('Pass color', TRANSPORT_CARD_PALETTE, f.color, 'pageChip', 'color')}
+    ${saveButtonHtml('Save changes', 'savePageForm', true)}
   `;
 }
 
@@ -582,7 +610,7 @@ async function saveForm() {
   } else if (f.kind === 'settlement') {
     const L = ledger();
     const amt = Number(f.amount) || 0;
-    const open = L.recv[f.travelerId] || 0;
+    const open = settlementOpenBalance(f, L);
     if (!amt || !f.travelerId || !f.accountId) { showToast('Amount, person and account are required'); return; }
     if (amt > open + 0.5) { showToast('Over-settlement blocked — max ' + fmtMoney(open, Data.trip.currency)); return; }
     patch = { type: 'settlement', occurredAt, note: f.note, direction: 'they_paid_me', travelerId: f.travelerId, accountId: f.accountId, amount: amt };
@@ -605,7 +633,7 @@ async function saveForm() {
   } else if (f.kind === 'pass') {
     const amt = Number(f.amount) || 0;
     if (!amt || !f.name || !f.accountId) { showToast('Price, name and account are required'); return; }
-    const pass = await addPass({ name: f.name, purchasePrice: amt, startDate: f.startDate, endDate: f.endDate });
+    const pass = await addPass({ name: f.name, purchasePrice: amt, startDate: f.startDate, endDate: f.endDate, color: f.color });
     patch = { type: 'pass_purchase', occurredAt, note: f.note, passId: pass.id, accountId: f.accountId, amount: amt, title: f.name, transportCategoryId: (Data.categories.find(c => c.name === 'Transport') || {}).id, splitMode: 'none' };
   }
 
@@ -631,7 +659,7 @@ async function saveForm() {
 const PAGE_FORM_TITLES = {
   trip: 'New trip', tripInfo: 'Edit trip', account: 'Add credit card', wallet: 'Add transport card',
   newTraveler: 'Add traveler', newCategory: 'Add category', newTransportType: 'Add transport type',
-  editTraveler: 'Rename traveler'
+  editTraveler: 'Rename traveler', editWallet: 'Edit transport card', editPass: 'Edit pass'
 };
 
 function openPageForm(kind, editId) {
@@ -645,7 +673,13 @@ function openPageForm(kind, editId) {
   } else if (kind === 'account') {
     UI.pageForm = { kind, type: 'credit_card', name: '', startingBalance: 0 };
   } else if (kind === 'wallet') {
-    UI.pageForm = { kind, type: 'transport_wallet', name: '', startingBalance: 0 };
+    UI.pageForm = { kind, type: 'transport_wallet', name: '', startingBalance: 0, color: nextTransportCardColor() };
+  } else if (kind === 'editWallet') {
+    const a = Data.accounts.find(x => x.id === editId);
+    UI.pageForm = { kind, id: editId, type: 'transport_wallet', name: a ? a.name : '', color: a ? a.color : TRANSPORT_CARD_PALETTE[0] };
+  } else if (kind === 'editPass') {
+    const p = Data.passes.find(x => x.id === editId);
+    UI.pageForm = { kind, id: editId, name: p ? p.name : '', startDate: p ? p.startDate : '', endDate: p ? p.endDate : '', color: p ? p.color : TRANSPORT_CARD_PALETTE[0] };
   } else if (kind === 'newTraveler' || kind === 'newCategory' || kind === 'newTransportType') {
     UI.pageForm = { kind, name: '' };
   } else if (kind === 'editTraveler') {
@@ -672,7 +706,8 @@ function renderPageFormSheet() {
   let body = '';
   if (f.kind === 'trip') body = tripFormBody(f);
   else if (f.kind === 'tripInfo') body = tripInfoFormBody(f);
-  else if (f.kind === 'account' || f.kind === 'wallet') body = accountFormBody(f);
+  else if (f.kind === 'account' || f.kind === 'wallet' || f.kind === 'editWallet') body = accountFormBody(f);
+  else if (f.kind === 'editPass') body = passEditFormBody(f);
   else if (f.kind === 'newTraveler') body = quickNameFormBody(f, 'e.g. Jason', 'Add traveler');
   else if (f.kind === 'editTraveler') body = quickNameFormBody(f, 'e.g. Jason', 'Save name');
   else if (f.kind === 'newCategory') body = quickNameFormBody(f, 'e.g. Entertainment', 'Add category');
@@ -695,10 +730,8 @@ function tripFormBody(f) {
       <div style="flex:1;min-width:0">${pageField('Currency', 'pf-currency', { value: f.currency, placeholder: 'JPY' })}</div>
       <div style="flex:1;min-width:0">${pageField('Timezone', 'pf-timezone', { value: f.timezone, placeholder: 'Asia/Tokyo' })}</div>
     </div>
-    <div style="display:flex;gap:10px">
-      <div style="flex:1;min-width:0">${pageField('Start date', 'pf-start', { type: 'date', value: f.startDate, bind: 'startDate' })}</div>
-      <div style="flex:1;min-width:0">${pageField('End date', 'pf-end', { type: 'date', value: f.endDate, bind: 'endDate' })}</div>
-    </div>
+    ${pageField('Start date', 'pf-start', { type: 'date', value: f.startDate, bind: 'startDate' })}
+    ${pageField('End date', 'pf-end', { type: 'date', value: f.endDate, bind: 'endDate' })}
     ${pageField('Total budget (optional)', 'pf-budget', { type: 'number', value: f.totalBudget, bind: 'totalBudget', min: 0 })}
     <div style="display:flex;gap:10px">
       <div style="flex:1;min-width:0">${pageField('Starting cash', 'pf-cash', { type: 'number', value: f.startingCash, bind: 'startingCash', min: 0 })}</div>
@@ -717,10 +750,8 @@ function tripInfoFormBody(f) {
       <div style="flex:1;min-width:0">${pageField('Currency', 'pf-currency', { value: f.currency })}</div>
       <div style="flex:1;min-width:0">${pageField('Timezone', 'pf-timezone', { value: f.timezone })}</div>
     </div>
-    <div style="display:flex;gap:10px">
-      <div style="flex:1;min-width:0">${pageField('Start date', 'pf-start', { type: 'date', value: f.startDate, bind: 'startDate' })}</div>
-      <div style="flex:1;min-width:0">${pageField('End date', 'pf-end', { type: 'date', value: f.endDate, bind: 'endDate' })}</div>
-    </div>
+    ${pageField('Start date', 'pf-start', { type: 'date', value: f.startDate, bind: 'startDate' })}
+    ${pageField('End date', 'pf-end', { type: 'date', value: f.endDate, bind: 'endDate' })}
     ${pageField('Total budget', 'pf-budget', { type: 'number', value: f.totalBudget, bind: 'totalBudget', min: 0 })}
     ${saveButtonHtml('Save changes', 'savePageForm', true)}
   `;
@@ -728,10 +759,12 @@ function tripInfoFormBody(f) {
 
 function accountFormBody(f) {
   const isWallet = f.type === 'transport_wallet';
+  const isEdit = !!f.id;
   return `
     ${pageField('Name', 'pf-name', { value: f.name, placeholder: isWallet ? 'Suica' : 'Amex' })}
-    ${isWallet ? pageField('Starting balance', 'pf-bal', { type: 'number', value: f.startingBalance, bind: 'startingBalance', min: 0 }) : ''}
-    ${saveButtonHtml(isWallet ? 'Add transport card' : 'Add credit card', 'savePageForm', true)}
+    ${isWallet && !isEdit ? pageField('Starting balance', 'pf-bal', { type: 'number', value: f.startingBalance, bind: 'startingBalance', min: 0 }) : ''}
+    ${isWallet ? colorSwatchRow('Card color', TRANSPORT_CARD_PALETTE, f.color, 'pageChip', 'color') : ''}
+    ${saveButtonHtml(isEdit ? 'Save changes' : (isWallet ? 'Add transport card' : 'Add credit card'), 'savePageForm', true)}
   `;
 }
 
@@ -753,7 +786,21 @@ async function savePageForm() {
   }
   if (f.kind === 'account' || f.kind === 'wallet') {
     if (!f.name) { showToast('Name is required'); return; }
-    await addAccount({ type: f.type, name: f.name, startingBalance: Number(f.startingBalance) || 0 });
+    await addAccount({ type: f.type, name: f.name, startingBalance: Number(f.startingBalance) || 0, color: f.color });
+    closePageForm();
+    render();
+    return;
+  }
+  if (f.kind === 'editWallet') {
+    if (!f.name) { showToast('Name is required'); return; }
+    await editWallet(f.id, { name: f.name, color: f.color });
+    closePageForm();
+    render();
+    return;
+  }
+  if (f.kind === 'editPass') {
+    if (!f.name) { showToast('Name is required'); return; }
+    await editPass(f.id, { name: f.name, startDate: f.startDate, endDate: f.endDate, color: f.color });
     closePageForm();
     render();
     return;
