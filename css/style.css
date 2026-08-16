@@ -69,6 +69,12 @@ input, select, textarea { outline: none; }
   position: relative;
   overflow: hidden;
 }
+/* The pre-trip "My Trips" screen has no white tab bar at its bottom edge —
+   its own background IS the screen's edge color, so it needs to match
+   body's white (not the usual paper content color) for the same reason
+   body was switched to white: any sliver revealed at the bottom in iOS
+   standalone mode should blend in instead of showing as a mismatched strip. */
+.app-trips { background: #fff; }
 .scroll {
   flex: 1;
   min-height: 0;
@@ -273,17 +279,17 @@ input, select, textarea { outline: none; }
 .tabbar {
   background: #fff;
   border-radius: 0;
-  /* A flat, unconditional bottom cushion — not just env(safe-area-inset-bottom).
-     That value has proven unreliable in iOS standalone (home-screen) launch
-     mode even though it reports fine in a regular Safari tab, so the real
-     floor here doesn't depend on it being accurate at all. */
-  height: 90px;
   box-sizing: border-box;
   display: flex; align-items: center; gap: 10px;
-  padding: 0 22px 32px;
+  /* Height is no longer a flat guess — it's the chip (46px) plus a compact
+     10px cushion on each side, with the actual home-indicator inset (capped
+     at 22px) added on top of that base only where the device needs it. Now
+     that the standalone bottom-edge gap turned out to be the body/bar color
+     mismatch (not env() itself), env() is safe to rely on again. */
+  padding: 10px 22px calc(10px + min(env(safe-area-inset-bottom), 22px));
   box-shadow: 0 -4px 18px rgba(15,25,35,.08);
 }
-.tab-item { flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; background: none; border: none; padding: 6px 0; }
+.tab-item { flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; background: none; border: none; padding: 0; }
 .tab-icon-chip { display: flex; align-items: center; justify-content: center; width: 46px; height: 46px; border-radius: 50%; transition: background .15s ease; }
 .tab-icon-chip.active { background: var(--lime); }
 .center-fab {

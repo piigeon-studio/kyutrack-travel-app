@@ -9,6 +9,16 @@ const FORM_TITLES = {
   atm: 'ATM withdrawal', adjustment: 'Balance adjustment', pass: 'Add pass'
 };
 
+/* type="text" + inputmode="decimal" is what actually gets iOS to show a
+   number-only keypad — type="number" still brings up the full QWERTY
+   keyboard (with a number row) on iOS Safari despite appearances. Omitting
+   value entirely for an unset (0) amount lets placeholder="0" show as a
+   grey example instead of a real "0" the user has to backspace first. */
+function moneyAttrs(value) {
+  const n = Number(value) || 0;
+  return n ? `value="${n}"` : `placeholder="0"`;
+}
+
 function chip(label, active, action, extraAttrs) {
   return `<span class="chip ${active ? 'active' : ''}" data-action="${action.action}" ${Object.entries(action.data || {}).map(([k, v]) => `data-${k}="${escapeHtml(String(v))}"`).join(' ')} ${extraAttrs || ''}>${escapeHtml(label)}</span>`;
 }
@@ -153,7 +163,7 @@ function splitEditorHtmlTransport(f, parts) {
               <div class="row-title">${escapeHtml(t.name)}</div>
               ${inc && p ? `<div class="row-sub" style="margin-top:5px;font-size:10px">tax ${fmtMoney(p.tax, Data.trip.currency)} → share ${fmtMoney(p.share, Data.trip.currency)}</div>` : ''}
             </div>
-            ${inc ? `<input type="number" min="0" value="${f.subs[t.id] || 0}" data-bind="subs.${t.id}" style="width:88px;flex:none;text-align:right;border:1px solid rgba(21,35,47,.14);border-radius:12px;padding:8px 10px;font:700 13px/1 var(--font);background:#fff">` : ''}
+            ${inc ? `<input type="text" inputmode="decimal" ${moneyAttrs(f.subs[t.id])} data-bind="subs.${t.id}" style="width:88px;flex:none;text-align:right;border:1px solid rgba(21,35,47,.14);border-radius:12px;padding:8px 10px;font:700 13px/1 var(--font);background:#fff">` : ''}
           </div>`;
         }).join('')}
       </div>
@@ -269,13 +279,13 @@ function splitEditorHtmlPlain(f, amt, sum, tax) {
             <input type="checkbox" data-action="toggleSplitParticipant" data-id="${t.id}" ${inc ? 'checked' : ''} ${t.isSelf ? 'disabled' : ''} style="width:19px;height:19px;flex:none;accent-color:var(--ink);cursor:${t.isSelf ? 'default' : 'pointer'}">
             <span class="avatar" style="width:26px;height:26px;background:${t.color}">${escapeHtml(t.name[0])}</span>
             <div class="row-title" style="flex:1;min-width:0">${escapeHtml(t.name)}</div>
-            ${inc ? `<input type="number" min="0" value="${f.subs[t.id] || 0}" data-bind="subs.${t.id}" data-recalc="split" style="width:88px;flex:none;text-align:right;border:1px solid rgba(21,35,47,.14);border-radius:12px;padding:8px 10px;font:700 13px/1 var(--font);background:#fff">` : ''}
+            ${inc ? `<input type="text" inputmode="decimal" ${moneyAttrs(f.subs[t.id])} data-bind="subs.${t.id}" data-recalc="split" style="width:88px;flex:none;text-align:right;border:1px solid rgba(21,35,47,.14);border-radius:12px;padding:8px 10px;font:700 13px/1 var(--font);background:#fff">` : ''}
           </div>`;
         }).join('')}
       </div>
       <div class="form-row" style="margin-top:14px">
         <div class="field-label">Tax (optional)</div>
-        <input type="number" min="0" value="${f.taxValue || 0}" data-bind="taxValue" data-recalc="split" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:700 14px/1 var(--font);background:#fff;box-sizing:border-box">
+        <input type="text" inputmode="decimal" ${moneyAttrs(f.taxValue)} data-bind="taxValue" data-recalc="split" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:700 14px/1 var(--font);background:#fff;box-sizing:border-box">
       </div>
       <div id="split-remaining">${splitRemainingHtml(amt - sum - tax)}</div>
     </div>`;
@@ -323,7 +333,7 @@ function expenseFormBody(f) {
 
     <div class="form-row">
       <div class="field-label">Amount</div>
-      <input type="number" min="0" value="${f.amount}" data-bind="amount" data-recalc="split" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:700 15px/1 var(--font);background:#fff;box-sizing:border-box">
+      <input type="text" inputmode="decimal" ${moneyAttrs(f.amount)} data-bind="amount" data-recalc="split" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:700 15px/1 var(--font);background:#fff;box-sizing:border-box">
     </div>
 
     ${optionRow('Paid with', paymentAccounts().map(a => chip(a.name + (a.type === 'credit_card' ? ' (card)' : ''), f.accountId === a.id, { action: 'setForm', data: { field: 'accountId', value: a.id } })).join(''))}
@@ -387,7 +397,7 @@ function transportFormBody(f) {
     </div>` : `
     <div class="form-row">
       <div class="field-label">${f.payMode === 'pass' ? 'Comparable normal price (optional)' : 'Fare'}</div>
-      <input type="number" min="0" value="${f.amount}" data-bind="amount" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:700 15px/1 var(--font);background:#fff;box-sizing:border-box">
+      <input type="text" inputmode="decimal" ${moneyAttrs(f.amount)} data-bind="amount" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:700 15px/1 var(--font);background:#fff;box-sizing:border-box">
       ${f.payMode === 'pass' ? `<div class="row-sub" style="margin-top:8px">Only needed if you want this ride counted in the pass's savings estimate — leave blank to just log the trip</div>` : ''}
     </div>`}
 
@@ -432,7 +442,7 @@ function settlementFormBody(f) {
   return `
     <div class="form-row">
       <div class="field-label">They paid me</div>
-      <input type="number" min="0" value="${f.amount}" data-bind="amount" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:700 15px/1 var(--font);background:#fff;box-sizing:border-box">
+      <input type="text" inputmode="decimal" ${moneyAttrs(f.amount)} data-bind="amount" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:700 15px/1 var(--font);background:#fff;box-sizing:border-box">
       <div class="row-sub" style="margin-top:8px">Open balance ${fmtMoney(open, Data.trip.currency)}</div>
     </div>
     ${optionRow('Person', otherTravelers().map(t => chip(t.name, f.travelerId === t.id, { action: 'setForm', data: { field: 'travelerId', value: t.id } })).join(''))}
@@ -453,7 +463,7 @@ function topupFormBody(f) {
   return `
     <div class="form-row">
       <div class="field-label">Top-up amount</div>
-      <input type="number" min="0" value="${f.amount}" data-bind="amount" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:700 15px/1 var(--font);background:#fff;box-sizing:border-box">
+      <input type="text" inputmode="decimal" ${moneyAttrs(f.amount)} data-bind="amount" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:700 15px/1 var(--font);background:#fff;box-sizing:border-box">
       <div class="row-sub" style="margin-top:8px">${dst ? dst.name : 'Wallet'} now ${fmtMoney(dst ? (L.bal[dst.id] || 0) : 0, Data.trip.currency)}</div>
     </div>
     ${optionRow('From', cashWiseAccounts().map(a => chip(a.name, f.sourceAccountId === a.id, { action: 'setForm', data: { field: 'sourceAccountId', value: a.id } })).join(''))}
@@ -470,7 +480,7 @@ function fundingFormBody(f) {
   return `
     <div class="form-row">
       <div class="field-label">Amount to add</div>
-      <input type="number" min="0" value="${f.amount}" data-bind="amount" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:700 15px/1 var(--font);background:#fff;box-sizing:border-box">
+      <input type="text" inputmode="decimal" ${moneyAttrs(f.amount)} data-bind="amount" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:700 15px/1 var(--font);background:#fff;box-sizing:border-box">
     </div>
     ${optionRow('To', cashWiseAccounts().map(a => chip(a.name, f.accountId === a.id, { action: 'setForm', data: { field: 'accountId', value: a.id } })).join(''))}
     ${dateTimeRowHtml(f)}
@@ -490,14 +500,14 @@ function transferFormBody(f) {
   return `
     <div class="form-row">
       <div class="field-label">Amount</div>
-      <input type="number" min="0" value="${f.amount}" data-bind="amount" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:700 15px/1 var(--font);background:#fff;box-sizing:border-box">
+      <input type="text" inputmode="decimal" ${moneyAttrs(f.amount)} data-bind="amount" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:700 15px/1 var(--font);background:#fff;box-sizing:border-box">
       <div class="row-sub" style="margin-top:8px">${src ? src.name : '—'} → ${dst ? dst.name : '—'}</div>
     </div>
     ${!isAtm ? optionRow('From', accs.map(a => chip(a.name, f.sourceAccountId === a.id, { action: 'setForm', data: { field: 'sourceAccountId', value: a.id } })).join('')) : ''}
     ${!isAtm ? optionRow('To', accs.map(a => chip(a.name, f.destinationAccountId === a.id, { action: 'setForm', data: { field: 'destinationAccountId', value: a.id } })).join('')) : ''}
     <div class="form-row">
       <div class="field-label">Fee (optional)</div>
-      <input type="number" min="0" value="${f.feeAmount || 0}" data-bind="feeAmount" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:700 14px/1 var(--font);background:#fff;box-sizing:border-box">
+      <input type="text" inputmode="decimal" ${moneyAttrs(f.feeAmount)} data-bind="feeAmount" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:700 14px/1 var(--font);background:#fff;box-sizing:border-box">
     </div>
     ${dateTimeRowHtml(f)}
     ${saveButtonHtml(isAtm ? 'Withdraw' : 'Transfer')}
@@ -514,7 +524,7 @@ function adjustmentFormBody(f) {
   return `
     <div class="form-row">
       <div class="field-label">Adjustment amount</div>
-      <input type="number" min="0" value="${f.amount}" data-bind="amount" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:700 15px/1 var(--font);background:#fff;box-sizing:border-box">
+      <input type="text" inputmode="decimal" ${moneyAttrs(f.amount)} data-bind="amount" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:700 15px/1 var(--font);background:#fff;box-sizing:border-box">
       <div class="row-sub" style="margin-top:8px">${fmtSignedBig(delta, Data.trip.currency)} · ${acc ? acc.name : '—'} now ${fmtMoney(acc ? (L.bal[acc.id] || 0) : 0, Data.trip.currency)} → ${fmtMoney((acc ? (L.bal[acc.id] || 0) : 0) + delta, Data.trip.currency)}</div>
     </div>
     ${optionRow('Account', adjustableAccounts().map(a => chip(a.name, f.accountId === a.id, { action: 'setForm', data: { field: 'accountId', value: a.id } })).join(''))}
@@ -535,7 +545,7 @@ function passFormBody(f) {
   return `
     <div class="form-row">
       <div class="field-label">Purchase price</div>
-      <input type="number" min="0" value="${f.amount}" data-bind="amount" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:700 15px/1 var(--font);background:#fff;box-sizing:border-box">
+      <input type="text" inputmode="decimal" ${moneyAttrs(f.amount)} data-bind="amount" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:700 15px/1 var(--font);background:#fff;box-sizing:border-box">
     </div>
     <div class="form-row">
       <div class="field-label">Pass name</div>
@@ -693,11 +703,15 @@ function setPageForm(patch) { UI.pageForm = { ...UI.pageForm, ...patch }; render
 
 function pageField(label, id, opts) {
   opts = opts || {};
-  const type = opts.type || 'text';
+  const isMoney = opts.type === 'number';
+  const type = isMoney ? 'text' : (opts.type || 'text');
   const value = opts.value != null ? opts.value : '';
+  const valueAttrs = isMoney
+    ? `inputmode="decimal" ${moneyAttrs(value)}`
+    : `value="${escapeHtml(String(value))}" ${opts.placeholder ? `placeholder="${escapeHtml(opts.placeholder)}"` : ''}`;
   return `<div class="field">
     <div class="field-label">${escapeHtml(label)}</div>
-    <input type="${type}" id="${id}" data-bind="${opts.bind || id.replace(/^pf-/, '')}" data-bind-target="page" value="${escapeHtml(String(value))}" ${opts.placeholder ? `placeholder="${escapeHtml(opts.placeholder)}"` : ''} ${opts.min != null ? `min="${opts.min}"` : ''}>
+    <input type="${type}" id="${id}" data-bind="${opts.bind || id.replace(/^pf-/, '')}" data-bind-target="page" ${valueAttrs}>
   </div>`;
 }
 

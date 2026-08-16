@@ -129,7 +129,7 @@ function tripsScreenInner() {
 function renderAppShell() {
   if (UI.screen === 'trips' || !Data.trip) {
     return `
-    <div class="app">
+    <div class="app app-trips">
       <div class="scroll" id="scroll-area" style="padding-top:max(24px, env(safe-area-inset-top))">${tripsScreenInner()}</div>
       ${sheetHtml()}
       ${confirmDialogHtml()}
