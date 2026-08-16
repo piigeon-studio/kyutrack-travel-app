@@ -31,7 +31,7 @@ body {
   height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
-  background: var(--ink);
+  background: var(--paper);
   font-family: var(--font);
   -webkit-tap-highlight-color: transparent;
 }
@@ -41,17 +41,15 @@ input, select, textarea { outline: none; }
 
 /* ---------- App shell ---------- */
 .app-frame {
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100%;
   display: flex;
   justify-content: center;
-  background: var(--ink);
+  background: var(--paper);
 }
 .app {
   width: 100%;
   max-width: 480px;
-  height: 100vh;
-  height: 100dvh;
+  height: 100%;
   background: var(--paper);
   display: flex;
   flex-direction: column;
