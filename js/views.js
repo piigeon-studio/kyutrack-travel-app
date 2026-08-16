@@ -171,9 +171,9 @@ function tabbarHtml() {
   ];
   const tabBtn = t => {
     const active = UI.tab === t.key;
-    const color = active ? 'var(--lime)' : 'rgba(255,255,255,.42)';
+    const color = active ? 'var(--ink)' : 'rgba(21,35,47,.4)';
     return `<button class="tab-item" data-action="tab" data-tab="${t.key}" aria-label="${t.label}">
-      <span class="tab-icon-chip${active ? ' active' : ''}" style="color:${color}">${icon(t.ic, 24)}</span>
+      <span class="tab-icon-chip${active ? ' active' : ''}" style="color:${color}">${icon(t.ic, 28)}</span>
     </button>`;
   };
   const centerDisabled = Data.trip.status !== 'active' || !!UI.sheet;
@@ -182,7 +182,7 @@ function tabbarHtml() {
     ${left.map(tabBtn).join('')}
     <div class="tab-item">
       <button class="center-fab" data-action="quickAdd" aria-label="Add" ${centerDisabled ? 'disabled' : ''}>
-        ${icon('plus', 24)}
+        ${icon('add', 24)}
       </button>
     </div>
     ${right.map(tabBtn).join('')}

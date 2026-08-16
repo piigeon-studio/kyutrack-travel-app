@@ -246,11 +246,19 @@ input, select, textarea { outline: none; }
 .cta-lime { background: var(--lime); color: var(--ink); }
 
 /* ---------- Tab bar ---------- */
-.chrome { position: absolute; left: 40px; right: 40px; bottom: max(24px, calc(env(safe-area-inset-bottom) + 10px)); z-index: 5; }
-.tabbar { background: linear-gradient(180deg, #21343F 0%, var(--ink) 55%, #101B24 100%); border-radius: 31px; height: 62px; display: flex; align-items: center; padding: 0 10px; box-shadow: 0 10px 22px -14px rgba(15,25,35,.4); }
+.chrome { position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; }
+.tabbar {
+  background: #fff;
+  border-radius: 0;
+  height: calc(68px + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 22px calc(env(safe-area-inset-bottom));
+  box-shadow: 0 -4px 18px rgba(15,25,35,.08);
+}
 .tab-item { flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; background: none; border: none; padding: 6px 0; }
-.tab-icon-chip { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; transition: background .15s ease; }
-.tab-icon-chip.active { background: rgba(255,255,255,.14); }
+.tab-icon-chip { display: flex; align-items: center; justify-content: center; width: 46px; height: 46px; border-radius: 50%; transition: background .15s ease; }
+.tab-icon-chip.active { background: var(--lime); }
 .center-fab {
   width: 60px; height: 60px; border-radius: 50%;
   background: var(--lime);
