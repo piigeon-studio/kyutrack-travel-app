@@ -302,7 +302,7 @@ function receiptPickerHtml(f) {
         </div>` : `
         <label style="width:64px;height:64px;border-radius:12px;border:1px dashed rgba(21,35,47,.25);display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(21,35,47,.4)">
           ${icon('camera', 20)}
-          <input type="file" accept="image/*" capture="environment" data-pending-receipt="1" style="display:none">
+          <input type="file" accept="image/*" data-pending-receipt="1" style="display:none">
         </label>`}
     </div>
   </div>`;

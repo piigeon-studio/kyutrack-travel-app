@@ -742,7 +742,7 @@ function renderRecordDetailSheet() {
           </div>`).join('')}
         <label style="width:64px;height:64px;border-radius:12px;border:1px dashed rgba(21,35,47,.25);display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(21,35,47,.4)">
           ${icon('camera', 20)}
-          <input type="file" accept="image/*" capture="environment" data-receipt-target="${t.id}" style="display:none">
+          <input type="file" accept="image/*" data-receipt-target="${t.id}" style="display:none">
         </label>
       </div>
     </div>`;
