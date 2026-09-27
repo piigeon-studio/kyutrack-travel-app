@@ -217,7 +217,7 @@ async function removeTransportType(id) {
 }
 
 async function addPass(fields) {
-  const p = { id: uid(), tripId: Data.trip.id, name: fields.name, purchasePrice: fields.purchasePrice, startDate: fields.startDate, endDate: fields.endDate, status: 'active', notes: fields.notes || '', isArchived: false, color: fields.color || nextPassColor() };
+  const p = { id: uid(), tripId: Data.trip.id, name: fields.name, purchasePrice: fields.purchasePrice, startDate: fields.startDate, endDate: fields.endDate, status: 'active', notes: fields.notes || '', isArchived: false, boughtBeforeTrip: !!fields.boughtBeforeTrip, color: fields.color || nextPassColor() };
   await DB.put('passes', p);
   Data.passes.push(p);
   return p;

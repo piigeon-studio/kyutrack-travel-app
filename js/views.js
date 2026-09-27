@@ -28,7 +28,7 @@ function quickAddMenuHtml() {
         </button>
         <button class="quickadd-btn" data-action="quickAddPick" data-kind="transport">
           <span class="quickadd-icon">${icon('plus', 16)}</span>
-          <span>Add trip</span>
+          <span>Add ride</span>
         </button>
       </div>
     </div>`;
@@ -62,11 +62,11 @@ function topHeaderHtml() {
   }
   if (UI.tab === 'records') {
     const L = ledger();
-    return screenHeader('Records', `${Data.transactions.filter(t => t.type !== 'transport').length} records · ${fmtMoney(L.mySpending, Data.trip.currency)} of my spending`);
+    return screenHeader('Records', `${plural(Data.transactions.filter(t => t.type !== 'transport').length, 'record')} · ${fmtMoney(L.mySpending, Data.trip.currency)} of my spending`);
   }
   if (UI.tab === 'transport') {
     const trips = Data.transactions.filter(t => t.type === 'transport');
-    return screenHeader('Transport', `${trips.length} journeys logged`);
+    return screenHeader('Transport', `${plural(trips.length, 'ride')} logged`);
   }
   if (UI.tab === 'split') {
     return screenHeader('Split', 'Only debts involving you');
@@ -290,7 +290,7 @@ function renderDashboard() {
         <div class="row-amount" style="font-size:16px;margin-top:6px">${fmtMoneyBig(L.totalCardSpend, trip.currency)}</div>
       </div>
       <div style="text-align:right">
-        <div class="row-title" style="opacity:.6">Net position</div>
+        <div class="row-title" style="opacity:.6">Left after cards</div>
         <div class="row-amount" style="font-size:16px;margin-top:6px">${fmtMoneyBig(available - L.totalCardSpend, trip.currency)}</div>
       </div>
     </div>` : ''}
@@ -454,7 +454,14 @@ function updateRecordsList() {
 function renderTransport() {
   const L = ledger();
   const wallets = Data.accounts.filter(a => a.type === 'transport_wallet');
-  const passes = Data.passes.filter(p => !p.isArchived);
+  /* Expired passes stay visible (they are part of the trip's record) but sort to
+     the back and read as spent, so the pass you can actually use is the first
+     card in the strip rather than whatever happened to be created first. */
+  const PASS_ORDER = { active: 0, upcoming: 1, expired: 2 };
+  const passes = Data.passes
+    .filter(p => !p.isArchived)
+    .map(p => ({ ...p, phase: passPhase(p.startDate, p.endDate, Data.trip.timezone) }))
+    .sort((a, b) => PASS_ORDER[a.phase] - PASS_ORDER[b.phase] || a.startDate.localeCompare(b.startDate));
   const trips = Data.transactions.filter(t => t.type === 'transport').slice().sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
   const c = ctx();
 
@@ -465,7 +472,11 @@ function renderTransport() {
           .filter(t => t.status !== 'voided' && ((t.type === 'transfer' && t.subtype === 'top_up' && t.destinationAccountId === w.id) || (t.type === 'funding' && t.accountId === w.id)))
           .reduce((a, t) => a + t.amount, 0);
         const walletBal = L.bal[w.id] || 0;
-        const pctUsed = toppedUp > 0 ? Math.min(100, Math.max(0, (toppedUp - walletBal) / toppedUp * 100)) : 0;
+        /* Money that was ever on the card includes what it started with, not
+           just later top-ups — counting top-ups alone pins a card loaded once
+           at setup to "0% used" forever, however much gets spent from it. */
+        const loaded = toppedUp + (w.startingBalance || 0);
+        const pctUsed = loaded > 0 ? Math.min(100, Math.max(0, (loaded - walletBal) / loaded * 100)) : 0;
         const onLight = w.color === TRANSPORT_CARD_PALETTE[0];
         const lowBalance = walletBal < 300;
         return `
@@ -488,7 +499,7 @@ function renderTransport() {
               </div>
               <div>
                 <div class="transit-card-track"><div class="transit-card-fill" style="width:${pctUsed.toFixed(1)}%"></div></div>
-                <div class="transit-card-stats">${pctUsed.toFixed(0)}% used · Topped up ${fmtMoney(toppedUp, Data.trip.currency)} total</div>
+                <div class="transit-card-stats">${pctUsed.toFixed(0)}% used · ${fmtMoney(loaded, Data.trip.currency)} loaded total</div>
               </div>
             </div>
           </div>
@@ -499,18 +510,22 @@ function renderTransport() {
     ${passes.length ? `<div class="h-scroll h-scroll-transit">
       ${passes.map(p => {
         const onLight = p.color === TRANSPORT_CARD_PALETTE[0];
+        const expired = p.phase === 'expired';
         return `
       <div class="pass-ticket-slide">
-        <div class="pass-ticket${onLight ? ' on-light' : ''}" style="background:${p.color || 'var(--lilac)'}">
+        <div class="pass-ticket${onLight ? ' on-light' : ''}${expired ? ' is-expired' : ''}" style="background:${p.color || 'var(--lilac)'}">
           <div class="pass-ticket-decor"></div>
           <div class="pass-ticket-body">
-            <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
               <span class="row-title" style="font-size:15px">${escapeHtml(p.name)}</span>
-              <span class="badge pass-ticket-badge">${p.status === 'active' ? 'Active' : 'Inactive'}</span>
+              <span class="badge pass-ticket-badge">${PASS_PHASE_LABEL[p.phase]}</span>
             </div>
-            <div class="pass-ticket-countdown">${passCountdownLabel(p.startDate, p.endDate, Data.trip.timezone)}</div>
-            <div style="display:flex;justify-content:space-between;align-items:flex-end">
-              <span class="pass-ticket-dates">${escapeHtml(p.startDate)} – ${escapeHtml(p.endDate)}</span>
+            <div>
+              <div class="pass-ticket-countdown">${passCountdownLabel(p.startDate, p.endDate, Data.trip.timezone)}</div>
+              <div class="pass-ticket-dates">${escapeHtml(fmtDateRangeShort(p.startDate, p.endDate))}</div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline">
+              <span class="pass-ticket-cost-label">${p.boughtBeforeTrip ? 'Paid before trip' : 'Cost'}</span>
               <span class="row-amount">${fmtMoneyBig(p.purchasePrice, Data.trip.currency)}</span>
             </div>
           </div>
@@ -519,7 +534,7 @@ function renderTransport() {
       }).join('')}
     </div>` : ''}
 
-    <div style="margin-top:2px" class="section-label">Trip log</div>
+    <div style="margin-top:2px" class="section-label">Rides</div>
     <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
       ${trips.length ? trips.map(t => {
         const r = rowFor(t, c);
@@ -535,7 +550,7 @@ function renderTransport() {
             <div class="badge ${t.coveredByPass ? 'tag-pass' : ''}">${escapeHtml(tag)}</div>
           </div>
         </button>`;
-      }).join('') : `<div class="muted-note" style="padding:6px 0">No trips logged yet.</div>`}
+      }).join('') : `<div class="muted-note" style="padding:6px 0">No rides logged yet.</div>`}
     </div>
   `;
 }
@@ -930,7 +945,7 @@ function settingsSubTransport() {
       ${Data.passes.map(p => `
         <div class="grouped-row" style="cursor:pointer" data-action="openPageForm" data-kind="editPass" data-id="${p.id}">
           <span class="dot" style="background:${p.color || 'var(--lilac)'}"></span>
-          <div style="flex:1"><div class="row-title">${escapeHtml(p.name)}${p.isArchived ? ' (archived)' : ''}</div><div class="row-sub" style="margin-top:4px">${escapeHtml(p.startDate)} – ${escapeHtml(p.endDate)} · ${p.status}</div></div>
+          <div style="flex:1"><div class="row-title">${escapeHtml(p.name)}${p.isArchived ? ' (archived)' : ''}</div><div class="row-sub" style="margin-top:4px">${escapeHtml(fmtDateRangeShort(p.startDate, p.endDate))} · ${PASS_PHASE_LABEL[passPhase(p.startDate, p.endDate, Data.trip.timezone)]}${p.boughtBeforeTrip ? ' · pre-trip' : ''}</div></div>
           <span class="row-amount" style="margin-right:8px">${fmtMoneyBig(p.purchasePrice, Data.trip.currency)}</span>
           <button data-action="removePass" data-id="${p.id}" class="chip small danger">Remove</button>
         </div>`).join('') || `<div class="grouped-row" style="cursor:default"><span class="muted-note">None yet.</span></div>`}
@@ -953,7 +968,7 @@ function settingsSubTransport() {
 function settingsSubData() {
   const body = `
     <div class="card-white" style="margin-top:14px">
-      <div class="row-sub" style="line-height:1.6">${Data.transactions.length} records · ${Data.receipts.length} receipts stored on this device.</div>
+      <div class="row-sub" style="line-height:1.6">${plural(Data.transactions.length, 'record')} · ${plural(Data.receipts.length, 'receipt')} stored on this device.</div>
     </div>
     <div class="section-label" style="margin-top:18px">Export</div>
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">

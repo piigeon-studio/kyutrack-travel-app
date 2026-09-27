@@ -194,8 +194,14 @@ input, select, textarea { outline: none; }
 /* ---------- Pass ticket ---------- */
 .pass-ticket { position: relative; overflow: hidden; border-radius: 20px; aspect-ratio: 2.1; box-shadow: 0 14px 30px -14px rgba(15,25,35,.4); }
 .pass-ticket-body { position: relative; z-index: 1; height: 100%; box-sizing: border-box; padding: 18px 20px; display: flex; flex-direction: column; justify-content: space-between; }
-.pass-ticket-dates { font: 700 12px/1.3 var(--font); color: rgba(255,255,255,.8); }
 .pass-ticket-countdown { font: 800 26px/1 var(--font); letter-spacing: -.02em; color: #fff; }
+/* Sits directly under the countdown as its subtitle — at 12px/80% in the old
+   bottom row the dates were the least legible thing on the card. */
+.pass-ticket-dates { font: 700 14px/1.2 var(--font); letter-spacing: .01em; color: rgba(255,255,255,.88); margin-top: 6px; }
+.pass-ticket-cost-label { font: 700 11px/1 var(--font); text-transform: uppercase; letter-spacing: .06em; color: rgba(255,255,255,.55); }
+/* An expired pass is history, not an alarm — drain the colour instead of going
+   red, which would train the eye to ignore red where it does mean "act now". */
+.pass-ticket.is-expired { filter: saturate(.18) brightness(.97); opacity: .78; }
 .pass-ticket .row-title, .pass-ticket .row-amount { color: #fff; }
 .pass-ticket-badge { background: rgba(255,255,255,.22); color: #fff; margin-top: 0; }
 
@@ -206,7 +212,8 @@ input, select, textarea { outline: none; }
 }
 .pass-ticket.on-light .pass-ticket-decor { background: rgba(21,35,47,.08); }
 .pass-ticket.on-light .row-title, .pass-ticket.on-light .row-amount { color: var(--ink); }
-.pass-ticket.on-light .pass-ticket-dates { color: rgba(21,35,47,.6); }
+.pass-ticket.on-light .pass-ticket-dates { color: rgba(21,35,47,.72); }
+.pass-ticket.on-light .pass-ticket-cost-label { color: rgba(21,35,47,.5); }
 .pass-ticket.on-light .pass-ticket-countdown { color: var(--ink); }
 .pass-ticket.on-light .pass-ticket-badge { background: rgba(21,35,47,.12); color: var(--ink); }
 

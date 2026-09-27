@@ -196,6 +196,15 @@ function dispatch(action, el, ev) {
     case 'setTaxMode': setTaxMode(d.mode); break;
     case 'toggleSplit': toggleSplit(); break;
     case 'toggleSplitParticipant': toggleSplitParticipant(d.id); break;
+    case 'splitEvenly': splitEvenly(); break;
+    /* Turning it on also drops back to the account pay mode: "covered by pass"
+       describes a fare taken on the trip, which a pre-trip booking never is. */
+    case 'togglePreTrip': {
+      const on = !UI.form.boughtBefore;
+      setForm(on ? { boughtBefore: true, payMode: 'account' } : { boughtBefore: false });
+      break;
+    }
+    case 'togglePassBoughtBefore': setForm({ boughtBefore: !UI.form.boughtBefore }); break;
     case 'removePendingReceipt': if (UI.form) { UI.form.receiptFile = null; UI.form.receiptPreviewUrl = null; } render(); break;
     case 'saveForm': safe(saveForm); break;
 

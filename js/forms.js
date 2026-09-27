@@ -4,7 +4,7 @@
    validation happens on save (toast), not via a live-disabled button. */
 
 const FORM_TITLES = {
-  expense: 'Add expense', transport: 'Add trip', settlement: 'Settlement',
+  expense: 'Add expense', transport: 'Add ride', settlement: 'Settlement',
   topup: 'Top up', funding: 'Add funds', transfer: 'Transfer',
   atm: 'ATM withdrawal', adjustment: 'Balance adjustment', pass: 'Add pass'
 };
@@ -45,6 +45,21 @@ function quickAddPick(kind) {
   openForm(kind);
 }
 
+/** The id this kind of record used most recently, ignoring any that points at
+    something since archived. Logging the same kind of thing over and over is
+    this app's core loop, so the second record onward should open already set
+    the way the last one ended up — picking whatever sits first in the accounts
+    array instead means correcting the form on nearly every entry. */
+function lastUsedId(matches, field, isStillValid) {
+  const prior = Data.transactions
+    .filter(t => t.status !== 'voided' && matches(t))
+    .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
+  for (const t of prior) {
+    if (t[field] && isStillValid(t[field])) return t[field];
+  }
+  return null;
+}
+
 function openForm(kind, editId, prefill) {
   if (Data.trip.status !== 'active') { showToast('Trip is completed — reactivate it to add records.'); return; }
   UI.pageFormReturn = UI.sheet === 'settingsSub' ? { sheet: 'settingsSub', section: UI.settingsSection } : null;
@@ -59,10 +74,23 @@ function openForm(kind, editId, prefill) {
 
   if (kind === 'expense') {
     const firstCat = Data.categories.find(c => !c.isArchived && c.name !== 'Fees') || Data.categories[0];
-    UI.form = { ...base, categoryId: firstCat ? firstCat.id : null, accountId: (paymentAccounts()[0] || {}).id, splitOn: false, taxMode: 'fixed', taxValue: 0, subs: {}, included: [self.id], receiptFile: null, receiptPreviewUrl: null };
+    const payAccs = paymentAccounts();
+    const isExpense = t => t.type === 'expense';
+    const lastCat = lastUsedId(isExpense, 'categoryId', id => Data.categories.some(c => c.id === id && !c.isArchived));
+    const lastAcc = lastUsedId(isExpense, 'accountId', id => payAccs.some(a => a.id === id));
+    UI.form = { ...base, boughtBefore: false, categoryId: lastCat || (firstCat ? firstCat.id : null), accountId: lastAcc || (payAccs[0] || {}).id, splitOn: false, taxMode: 'fixed', taxValue: 0, subs: {}, included: [self.id], receiptFile: null, receiptPreviewUrl: null };
   } else if (kind === 'transport') {
     const firstType = Data.transportTypes.find(t => !t.isArchived);
-    UI.form = { ...base, from: '', to: '', transportTypeId: firstType ? firstType.id : null, payMode: 'account', accountId: (transportPaymentAccounts()[0] || {}).id, passId: (availablePasses()[0] || {}).id || null, splitOn: false, taxMode: 'percent', taxValue: 10, subs: {}, included: [self.id] };
+    const transitAccs = transportPaymentAccounts();
+    const isRide = t => t.type === 'transport';
+    const lastType = lastUsedId(isRide, 'transportTypeId', id => Data.transportTypes.some(t => t.id === id && !t.isArchived));
+    const lastAcc = lastUsedId(isRide, 'accountId', id => transitAccs.some(a => a.id === id));
+    /* First ride of the trip: prefer the transport card. Falling back to array
+       order would always pick Cash/Wise (created with the trip, so always
+       ahead of a later-added card) and quietly bill the fare to the wrong
+       account while the card's balance never moves. */
+    const defaultAcc = lastAcc || ((transitAccs.find(a => a.type === 'transport_wallet') || transitAccs[0] || {}).id);
+    UI.form = { ...base, from: '', to: '', transportTypeId: lastType || (firstType ? firstType.id : null), payMode: 'account', accountId: defaultAcc, passId: (availablePasses()[0] || {}).id || null, splitOn: false, taxMode: 'percent', taxValue: 10, subs: {}, included: [self.id] };
   } else if (kind === 'settlement') {
     const L = ledger();
     const openR = otherTravelers().filter(t => (L.recv[t.id] || 0) > 0.5);
@@ -83,7 +111,7 @@ function openForm(kind, editId, prefill) {
   } else if (kind === 'adjustment') {
     UI.form = { ...base, accountId: (adjustableAccounts()[0] || {}).id, sign: 1, reason: '' };
   } else if (kind === 'pass') {
-    UI.form = { ...base, name: '', accountId: (paymentAccounts()[0] || {}).id, startDate: Data.trip.startDate, endDate: Data.trip.endDate, color: nextPassColor() };
+    UI.form = { ...base, name: '', accountId: (paymentAccounts()[0] || {}).id, boughtBefore: false, startDate: Data.trip.startDate, endDate: Data.trip.endDate, color: nextPassColor() };
   }
   UI.sheet = 'form';
   render();
@@ -98,13 +126,13 @@ function hydrateForm(kind, t) {
   if (kind === 'expense') {
     const isTraveler = t.splitMode === 'self_share_other_paid';
     const isSplit = t.splitMode === 'full_user_paid';
-    return { ...base, categoryId: t.categoryId, payerType: isTraveler ? 'traveler' : 'me', accountId: t.accountId || null, payerTravelerId: t.payerTravelerId || null,
+    return { ...base, boughtBefore: !!t.boughtBeforeTrip, categoryId: t.categoryId, payerType: isTraveler ? 'traveler' : 'me', accountId: t.accountId || null, payerTravelerId: t.payerTravelerId || null,
       splitOn: isSplit, taxMode: t.taxMode || 'fixed', taxValue: t.taxValue || 0, subs: subsFromArray(t.subs), included: isSplit ? (t.subs || []).map(s => s.travelerId) : [self.id], title: t.title || '' };
   }
   if (kind === 'transport') {
     const isTraveler = t.splitMode === 'self_share_other_paid';
     const isSplit = t.splitMode === 'full_user_paid';
-    return { ...base, amount: t.fareAmount || 0, from: t.from, to: t.to, transportTypeId: t.transportTypeId,
+    return { ...base, boughtBefore: !!t.boughtBeforeTrip, amount: t.fareAmount || 0, from: t.from, to: t.to, transportTypeId: t.transportTypeId,
       payMode: t.coveredByPass ? 'pass' : (isTraveler ? 'traveler' : 'account'), accountId: t.accountId || null, passId: t.passId || (availablePasses()[0] || {}).id || null,
       payerTravelerId: t.payerTravelerId || null, splitOn: isSplit, taxMode: t.taxMode || 'percent', taxValue: t.taxValue || 10, subs: subsFromArray(t.subs), included: isSplit ? (t.subs || []).map(s => s.travelerId) : [self.id] };
   }
@@ -235,12 +263,35 @@ function toggleSplitParticipant(travelerId) {
   else setForm({ included: f.included.filter(x => x !== travelerId), subs: { ...f.subs, [travelerId]: 0 } });
 }
 
-function splitRemainingHtml(remaining) {
+function splitRemainingHtml(remaining, untouched) {
   if (remaining === 0) return '';
-  const label = remaining > 0
-    ? fmtMoney(remaining, Data.trip.currency) + ' left to allocate'
-    : fmtMoney(-remaining, Data.trip.currency) + ' over';
-  return `<div class="warning-card" style="margin-top:12px">${label}</div>`;
+  if (remaining < 0) return `<div class="warning-card" style="margin-top:12px">${fmtMoney(-remaining, Data.trip.currency)} over</div>`;
+  const label = fmtMoney(remaining, Data.trip.currency) + ' not shared out yet';
+  /* Having allocated nothing yet is just the starting point, not a mistake —
+     opening with a red error the instant the toggle is flipped reads as if the
+     user already did something wrong. */
+  return untouched
+    ? `<div class="hint" style="margin-top:12px">${label} — or tap Split evenly.</div>`
+    : `<div class="warning-card" style="margin-top:12px">${label}</div>`;
+}
+
+/** One tap for the case that actually comes up most: the bill divided equally.
+    Splits among whoever is already ticked, so picking just the two people who
+    were actually there still works; from the untouched state (only me) it means
+    everyone. Any indivisible remainder lands on you rather than a companion, so
+    the parts always add back to the exact total and nobody is over-billed. */
+function splitEvenly() {
+  const f = UI.form;
+  if (!f) return;
+  const self = selfTraveler();
+  const pot = Math.max(0, (Number(f.amount) || 0) - (Number(f.taxValue) || 0));
+  const picked = (f.included || []).filter(id => Data.travelers.some(t => t.id === id));
+  const ids = picked.length > 1 ? picked : Data.travelers.map(t => t.id);
+  const each = Math.floor(pot / ids.length);
+  const subs = {};
+  ids.forEach(id => { subs[id] = each; });
+  subs[self.id] = each + (pot - each * ids.length);
+  setForm({ included: ids, subs });
 }
 
 /** Recomputes and patches just the #split-remaining / #split-tax-summary
@@ -257,7 +308,7 @@ function updateSplitRemaining() {
   const tax = Number(f.taxValue) || 0;
 
   const remainingEl = document.getElementById('split-remaining');
-  if (remainingEl) remainingEl.innerHTML = splitRemainingHtml(amt - sum - tax);
+  if (remainingEl) remainingEl.innerHTML = splitRemainingHtml(amt - sum - tax, sum === 0);
 
   const summaryEl = document.getElementById('split-tax-summary');
   if (summaryEl) {
@@ -271,7 +322,10 @@ function updateSplitRemaining() {
 function splitEditorHtmlPlain(f, amt, sum, tax) {
   return `
     <div class="split-block">
-      <div class="field-label">Subtotals per traveler</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <span class="field-label">Subtotals per traveler</span>
+        <button class="chip small" data-action="splitEvenly">Split evenly</button>
+      </div>
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
         ${Data.travelers.map(t => {
           const inc = f.included.indexOf(t.id) >= 0;
@@ -287,7 +341,7 @@ function splitEditorHtmlPlain(f, amt, sum, tax) {
         <div class="field-label">Tax (optional)</div>
         <input type="text" inputmode="decimal" ${moneyAttrs(f.taxValue)} data-bind="taxValue" data-recalc="split" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:700 14px/1 var(--font);background:#fff;box-sizing:border-box">
       </div>
-      <div id="split-remaining">${splitRemainingHtml(amt - sum - tax)}</div>
+      <div id="split-remaining">${splitRemainingHtml(amt - sum - tax, sum === 0)}</div>
     </div>`;
 }
 
@@ -323,8 +377,21 @@ function expenseFormBody(f) {
   const saveLabel = 'Save';
 
   let ledgerHint;
-  if (f.splitOn) ledgerHint = 'Account and cash flow move by the full amount; budget only by your share.';
-  else ledgerHint = (acc && acc.type === 'credit_card') ? 'Card spending and budget move; Cash and Wise do not.' : 'Account, cash flow and budget all move by the full amount.';
+  /* Plain language on purpose: three other people use this app and none of them
+     read "cash flow" as anything. Name the account and the two numbers that move. */
+  /* No live figures in here: the hint is built once per render, while the amount
+     keeps changing under a live DOM patch, so any number quoted would go stale. */
+  if (f.boughtBefore) {
+    ledgerHint = f.splitOn
+      ? 'Paid for at home, so no balance here moves. What the others owe you is still tracked.'
+      : 'Paid for at home, so nothing here moves — kept as a record of what the trip cost.';
+  } else if (f.splitOn) {
+    ledgerHint = `You pay the whole amount from ${acc ? escapeHtml(acc.name) : 'your account'}. Only your own share counts toward your budget.`;
+  } else if (acc && acc.type === 'credit_card') {
+    ledgerHint = `Goes on ${escapeHtml(acc.name)}. Your cash and Wise balances don't change.`;
+  } else {
+    ledgerHint = `Comes out of ${acc ? escapeHtml(acc.name) : 'your account'} and counts toward your budget.`;
+  }
 
   return `
     ${dateTimeRowHtml(f)}
@@ -336,7 +403,14 @@ function expenseFormBody(f) {
       <input type="text" inputmode="decimal" ${moneyAttrs(f.amount)} data-bind="amount" data-recalc="split" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:700 15px/1 var(--font);background:#fff;box-sizing:border-box">
     </div>
 
-    ${optionRow('Paid with', paymentAccounts().map(a => chip(a.name + (a.type === 'credit_card' ? ' (card)' : ''), f.accountId === a.id, { action: 'setForm', data: { field: 'accountId', value: a.id } })).join(''))}
+    <button class="split-toggle" data-action="togglePreTrip">
+      <div style="flex:1;min-width:0">
+        <div class="row-title">Bought before the trip</div>
+      </div>
+      <div class="switch-track ${f.boughtBefore ? 'on' : ''}"><div class="switch-knob"></div></div>
+    </button>
+
+    ${f.boughtBefore ? '' : optionRow('Paid with', paymentAccounts().map(a => chip(a.name + (a.type === 'credit_card' ? ' (card)' : ''), f.accountId === a.id, { action: 'setForm', data: { field: 'accountId', value: a.id } })).join(''))}
 
     <button class="split-toggle" data-action="toggleSplit">
       <div style="flex:1;min-width:0">
@@ -374,12 +448,18 @@ function transportFormBody(f) {
   const activePass = Data.passes.find(p => p.id === f.passId);
   const passOutOfRange = f.payMode === 'pass' && activePass && (f.dateStr < activePass.startDate || f.dateStr > activePass.endDate);
 
-  const saveLabel = 'Save trip';
+  const saveLabel = 'Save ride';
 
   let ledgerHint;
-  if (f.payMode === 'pass') ledgerHint = 'No account moves. Pass value used increases by the fare.';
-  else if (f.splitOn) ledgerHint = 'Wallet/account and cash flow move by the full fare; budget only by your share.';
-  else ledgerHint = 'Wallet decreases; cash flow and budget move by the fare.';
+  if (f.boughtBefore) ledgerHint = f.splitOn
+    ? 'Booked at home, so no balance here moves. What the others owe you is still tracked.'
+    : 'Booked at home, so nothing here moves — kept as a record of what the trip cost.';
+  else if (f.payMode === 'pass') ledgerHint = 'Covered by your pass — nothing is deducted from any account.';
+  else if (f.splitOn) ledgerHint = 'You pay the whole fare. Only your own share counts toward your budget.';
+  // Name the account actually selected — saying "wallet" while Cash or Wise is
+  // picked describes a move that didn't happen.
+  else if (acc && acc.type === 'transport_wallet') ledgerHint = `${escapeHtml(acc.name)} drops by the fare. Counts toward your budget.`;
+  else ledgerHint = `Comes out of ${acc ? escapeHtml(acc.name) : 'your account'} and counts toward your budget.`;
 
   return `
     <div class="form-row" style="display:flex;gap:10px">
@@ -401,7 +481,14 @@ function transportFormBody(f) {
       ${f.payMode === 'pass' ? `<div class="row-sub" style="margin-top:8px">Only needed if you want this ride counted in the pass's savings estimate — leave blank to just log the trip</div>` : ''}
     </div>`}
 
-    ${optionRow('Paid by', transportPaymentAccounts().map(a => chip(a.name, f.payMode === 'account' && f.accountId === a.id, { action: 'setForm', data: { field: 'accountId', value: a.id } })).join('') +
+    <button class="split-toggle" data-action="togglePreTrip">
+      <div style="flex:1;min-width:0">
+        <div class="row-title">Bought before the trip</div>
+      </div>
+      <div class="switch-track ${f.boughtBefore ? 'on' : ''}"><div class="switch-knob"></div></div>
+    </button>
+
+    ${f.boughtBefore ? '' : optionRow('Paid by', transportPaymentAccounts().map(a => chip(a.name, f.payMode === 'account' && f.accountId === a.id, { action: 'setForm', data: { field: 'accountId', value: a.id } })).join('') +
       (availablePasses().length ? chip('Covered by pass', f.payMode === 'pass', { action: 'setForm', data: { field: 'payMode', value: 'pass' } }) : ''))}
     ${f.payMode === 'pass' && availablePasses().length > 1 ? optionRow('Which pass', availablePasses().map(p => chip(p.name, f.passId === p.id, { action: 'setForm', data: { field: 'passId', value: p.id } })).join('')) : ''}
 
@@ -551,12 +638,20 @@ function passFormBody(f) {
       <div class="field-label">Pass name</div>
       <input type="text" data-bind="name" value="${escapeHtml(f.name || '')}" placeholder="JR Pass 7-Day" style="margin-top:9px;width:100%;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:600 13px/1 var(--font);background:#fff">
     </div>
-    ${optionRow('Paid with', paymentAccounts().map(a => chip(a.name, f.accountId === a.id, { action: 'setForm', data: { field: 'accountId', value: a.id } })).join(''))}
+    <button class="split-toggle" data-action="togglePassBoughtBefore">
+      <div style="flex:1;min-width:0">
+        <div class="row-title">Bought before the trip</div>
+      </div>
+      <div class="switch-track ${f.boughtBefore ? 'on' : ''}"><div class="switch-knob"></div></div>
+    </button>
+    ${f.boughtBefore ? '' : optionRow('Paid with', paymentAccounts().map(a => chip(a.name, f.accountId === a.id, { action: 'setForm', data: { field: 'accountId', value: a.id } })).join(''))}
     <div class="form-row"><div class="field-label">Start date</div><input type="date" value="${f.startDate}" data-bind="startDate" style="margin-top:9px;width:100%;min-width:0;box-sizing:border-box;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:600 13px/1 var(--font);background:#fff"></div>
     <div class="form-row"><div class="field-label">End date</div><input type="date" value="${f.endDate}" data-bind="endDate" style="margin-top:9px;width:100%;min-width:0;box-sizing:border-box;border:1px solid rgba(21,35,47,.14);border-radius:14px;padding:10px 12px;font:600 13px/1 var(--font);background:#fff"></div>
     ${colorSwatchRow('Pass color', TRANSPORT_CARD_PALETTE, f.color, 'setForm', 'color')}
     ${saveButtonHtml('Buy pass')}
-    <div class="ledger-hint">A real personal expense — cash flow, spending and budget all move now.</div>
+    <div class="ledger-hint">${f.boughtBefore
+      ? 'Paid for at home, so nothing here moves — the price is kept on the pass for the record only.'
+      : 'Comes out of the account you picked and counts toward your budget.'}</div>
   `;
 }
 
@@ -588,34 +683,39 @@ async function saveForm() {
   if (f.kind === 'expense') {
     const title = autoExpenseTitle(f);
     const amt = Number(f.amount) || 0;
+    /* Pre-trip records carry no accountId at all: nothing in this ledger paid for
+       them, so pointing at an account would be a lie the ledger then has to
+       special-case everywhere it reads one. */
+    const preTrip = !!f.boughtBefore;
     if (f.splitOn) {
       if (!amt) { showToast('Amount is required'); return; }
       const subs = f.included.map(id => ({ travelerId: id, subtotal: Number(f.subs[id]) || 0 }));
       const sum = subs.reduce((a, b) => a + b.subtotal, 0);
       const tax = Number(f.taxValue) || 0;
       if (sum + tax !== amt) { showToast('Subtotals + tax must add up to ' + fmtMoney(amt, Data.trip.currency)); return; }
-      patch = { type: 'expense', occurredAt, note: f.note, categoryId: f.categoryId, accountId: f.accountId, splitMode: 'full_user_paid', taxMode: 'fixed', taxValue: tax, subs, amount: amt, title };
+      patch = { type: 'expense', occurredAt, note: f.note, categoryId: f.categoryId, accountId: preTrip ? null : f.accountId, boughtBeforeTrip: preTrip, splitMode: 'full_user_paid', taxMode: 'fixed', taxValue: tax, subs, amount: amt, title };
     } else {
       if (!amt) { showToast('Amount is required'); return; }
-      if (!f.accountId) { showToast('Choose an account'); return; }
-      patch = { type: 'expense', occurredAt, note: f.note, categoryId: f.categoryId, accountId: f.accountId, splitMode: 'none', amount: amt, title };
+      if (!preTrip && !f.accountId) { showToast('Choose an account'); return; }
+      patch = { type: 'expense', occurredAt, note: f.note, categoryId: f.categoryId, accountId: preTrip ? null : f.accountId, boughtBeforeTrip: preTrip, splitMode: 'none', amount: amt, title };
     }
   } else if (f.kind === 'transport') {
     const amt = Number(f.amount) || 0;
     if (!f.from || !f.to) { showToast('From and to are required'); return; }
+    const preTrip = !!f.boughtBefore;
     const common = { type: 'transport', occurredAt, note: f.note, from: f.from, to: f.to, transportTypeId: f.transportTypeId, transportCategoryId: (Data.categories.find(c => c.name === 'Transport') || {}).id };
-    if (f.payMode === 'pass') {
+    if (!preTrip && f.payMode === 'pass') {
       if (!f.passId) { showToast('Choose which pass covered this'); return; }
       patch = { ...common, coveredByPass: true, passId: f.passId, fareAmount: amt, splitMode: 'none' };
     } else if (f.splitOn) {
       const subs = f.included.map(id => ({ travelerId: id, subtotal: Number(f.subs[id]) || 0 }));
       const sum = subs.reduce((a, b) => a + b.subtotal, 0);
-      if (!sum || !f.accountId) { showToast('Enter at least one subtotal'); return; }
+      if (!sum || (!preTrip && !f.accountId)) { showToast('Enter at least one subtotal'); return; }
       const tax = computeTax(sum, f.taxMode, f.taxValue);
-      patch = { ...common, coveredByPass: false, accountId: f.accountId, splitMode: 'full_user_paid', taxMode: f.taxMode, taxValue: f.taxValue, subs, fareAmount: sum + tax };
+      patch = { ...common, coveredByPass: false, accountId: preTrip ? null : f.accountId, boughtBeforeTrip: preTrip, splitMode: 'full_user_paid', taxMode: f.taxMode, taxValue: f.taxValue, subs, fareAmount: sum + tax };
     } else {
-      if (!amt || !f.accountId) { showToast('Fare and account are required'); return; }
-      patch = { ...common, coveredByPass: false, accountId: f.accountId, splitMode: 'none', fareAmount: amt };
+      if (!amt || (!preTrip && !f.accountId)) { showToast('Fare and account are required'); return; }
+      patch = { ...common, coveredByPass: false, accountId: preTrip ? null : f.accountId, boughtBeforeTrip: preTrip, splitMode: 'none', fareAmount: amt };
     }
   } else if (f.kind === 'settlement') {
     const L = ledger();
@@ -642,9 +742,13 @@ async function saveForm() {
     patch = { type: 'adjustment', occurredAt, accountId: f.accountId, delta: (f.sign || 1) * amt, reason: f.reason };
   } else if (f.kind === 'pass') {
     const amt = Number(f.amount) || 0;
-    if (!amt || !f.name || !f.accountId) { showToast('Price, name and account are required'); return; }
-    const pass = await addPass({ name: f.name, purchasePrice: amt, startDate: f.startDate, endDate: f.endDate, color: f.color });
-    patch = { type: 'pass_purchase', occurredAt, note: f.note, passId: pass.id, accountId: f.accountId, amount: amt, title: f.name, transportCategoryId: (Data.categories.find(c => c.name === 'Transport') || {}).id, splitMode: 'none' };
+    const preTrip = !!f.boughtBefore;
+    if (!amt || !f.name || (!preTrip && !f.accountId)) { showToast(preTrip ? 'Price and name are required' : 'Price, name and account are required'); return; }
+    const pass = await addPass({ name: f.name, purchasePrice: amt, startDate: f.startDate, endDate: f.endDate, color: f.color, boughtBeforeTrip: preTrip });
+    /* A pre-trip pass was paid for at home, out of money this ledger never saw.
+       It carries no accountId and the ledger skips it entirely, so it can never
+       drain the cash we actually brought. */
+    patch = { type: 'pass_purchase', occurredAt, note: f.note, passId: pass.id, accountId: preTrip ? null : f.accountId, boughtBeforeTrip: preTrip, amount: amt, title: f.name, transportCategoryId: (Data.categories.find(c => c.name === 'Transport') || {}).id, splitMode: 'none' };
   }
 
   if (!patch) return;

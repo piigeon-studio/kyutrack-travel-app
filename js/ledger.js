@@ -75,17 +75,24 @@ function computeLedger(transactions, accounts, categories, selfTravelerId) {
   for (const t of sorted) {
     if (t.type === 'expense' || (t.type === 'transport' && !t.coveredByPass) || t.type === 'pass_purchase') {
       const catId = t.type === 'transport' ? t.transportCategoryId : (t.type === 'pass_purchase' ? t.transportCategoryId : t.categoryId);
+      /* Bought before departure: paid for at home, out of money this ledger never
+         held. It must move no balance, no cash flow and no budget — all three
+         describe the money we brought. What a companion owes for it is still a
+         real debt they can hand back in cash on the trip, so splits still count. */
+      const preTrip = !!t.boughtBeforeTrip;
       if (t.splitMode === 'self_share_other_paid') {
-        addSpend(catId, t.amount);
+        if (!preTrip) addSpend(catId, t.amount);
         pay[t.payerTravelerId] = (pay[t.payerTravelerId] || 0) + t.amount;
       } else if (t.splitMode === 'full_user_paid') {
         const { parts, total } = splitParts(t);
         const mine = (parts.find(p => p.travelerId === selfTravelerId) || { share: 0 }).share;
-        if (isCard(t.accountId)) { cardSpend[t.accountId] = (cardSpend[t.accountId] || 0) + total; }
-        else { bal[t.accountId] -= total; cf -= total; }
-        addSpend(catId, mine);
+        if (!preTrip) {
+          if (isCard(t.accountId)) { cardSpend[t.accountId] = (cardSpend[t.accountId] || 0) + total; }
+          else { bal[t.accountId] -= total; cf -= total; }
+          addSpend(catId, mine);
+        }
         parts.filter(p => p.travelerId !== selfTravelerId).forEach(p => { recv[p.travelerId] = (recv[p.travelerId] || 0) + p.share; });
-      } else {
+      } else if (!preTrip) {
         const amt = t.type === 'transport' ? t.fareAmount : t.amount;
         if (isCard(t.accountId)) { cardSpend[t.accountId] = (cardSpend[t.accountId] || 0) + amt; }
         else { bal[t.accountId] -= amt; cf -= amt; }
@@ -176,7 +183,7 @@ function rowFor(t, ctx) {
       sub = (cat ? cat.name : '—') + ' · ' + (acc ? acc.name : '—');
       if (isCard(t.accountId)) badge = 'Card';
     }
-    return { id: t.id, title: t.title || (cat ? cat.name : 'Expense'), sub, amount: fmtMoney(amount, currency), color: cat ? cat.color : '#EFEAE0', badge, occurredAt: t.occurredAt, type: t.type };
+    return { id: t.id, title: t.title || (cat ? cat.name : 'Expense'), sub: t.boughtBeforeTrip ? sub.replace(/ · .*$/, '') + ' · bought before the trip' : sub, amount: fmtMoney(amount, currency), color: cat ? cat.color : '#EFEAE0', badge: t.boughtBeforeTrip ? 'Pre-trip' : badge, occurredAt: t.occurredAt, type: t.type };
   }
   if (t.type === 'transport') {
     const tt = transportTypes.find(x => x.id === t.transportTypeId);
@@ -185,12 +192,13 @@ function rowFor(t, ctx) {
     if (t.splitMode === 'full_user_paid') { amount = splitParts(t).total; badge = 'Split ' + (t.subs || []).length; }
     if (t.splitMode === 'self_share_other_paid') badge = 'Payable';
     const sub = (tt ? tt.name : 'Transport') + ' · ' + (t.coveredByPass ? 'covered by pass' : (t.splitMode === 'self_share_other_paid' ? 'paid by ' + ((travelers.find(x => x.id === t.payerTravelerId) || {}).name || '—') : (acc ? acc.name : '—')));
-    return { id: t.id, title: t.from + ' → ' + t.to, sub, amount: fmtMoney(amount, currency), color: DEFAULT_CATEGORY_COLORS.Transport, badge, occurredAt: t.occurredAt, type: t.type };
+    return { id: t.id, title: t.from + ' → ' + t.to, sub: t.boughtBeforeTrip ? (tt ? tt.name : 'Transport') + ' · bought before the trip' : sub, amount: fmtMoney(amount, currency), color: DEFAULT_CATEGORY_COLORS.Transport, badge: t.boughtBeforeTrip ? 'Pre-trip' : badge, occurredAt: t.occurredAt, type: t.type };
   }
   if (t.type === 'pass_purchase') {
     const acc = accountOf(t.accountId);
     const p = passes.find(x => x.id === t.passId);
-    return { id: t.id, title: t.title || (p ? p.name : 'Pass purchase'), sub: 'Transport · ' + (acc ? acc.name : '—'), amount: fmtMoney(t.amount, currency), color: DEFAULT_CATEGORY_COLORS.Transport, badge: 'Pass', occurredAt: t.occurredAt, type: t.type };
+    const sub = 'Transport · ' + (t.boughtBeforeTrip ? 'bought before the trip' : (acc ? acc.name : '—'));
+    return { id: t.id, title: t.title || (p ? p.name : 'Pass purchase'), sub, amount: fmtMoney(t.amount, currency), color: DEFAULT_CATEGORY_COLORS.Transport, badge: t.boughtBeforeTrip ? 'Pre-trip' : 'Pass', occurredAt: t.occurredAt, type: t.type };
   }
   if (t.type === 'transfer') {
     const src = accountOf(t.sourceAccountId), dst = accountOf(t.destinationAccountId);

@@ -10,6 +10,10 @@ function fmtNumberPlain(n) {
   return Math.abs(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
 }
 
+function plural(n, word) {
+  return `${n} ${word}${n === 1 ? '' : 's'}`;
+}
+
 function fmtMoney(n, currency) {
   const sym = currencySymbol(currency);
   const v = Math.round(Math.abs(n || 0)).toLocaleString('en-US');
@@ -116,6 +120,26 @@ function relativeDayLabel(iso, timeZone) {
   if (d > 1) return d + ' days ago';
   return dayLabel(iso, timeZone);
 }
+
+/** "Apr 4 – 15", or "Apr 28 – May 3" across a month boundary. Raw ISO dates are
+    unreadable at a glance on a card, which is the only place this is used. */
+function fmtDateRangeShort(startDate, endDate) {
+  const [, sm, sd] = startDate.split('-').map(Number);
+  const [, em, ed] = endDate.split('-').map(Number);
+  const left = MONTH_ABBR[sm - 1] + ' ' + sd;
+  return sm === em ? `${left} – ${ed}` : `${left} – ${MONTH_ABBR[em - 1]} ${ed}`;
+}
+
+/** Where a pass sits relative to today. The stored pass.status is set to 'active'
+    at creation and never updated, so it cannot be trusted to say this. */
+function passPhase(startDate, endDate, timeZone) {
+  const today = nowZonedParts(timeZone).date;
+  if (today < startDate) return 'upcoming';
+  if (daysBetween(today, endDate) < 0) return 'expired';
+  return 'active';
+}
+
+const PASS_PHASE_LABEL = { upcoming: 'Not started', active: 'Active', expired: 'Expired' };
 
 function passCountdownLabel(startDate, endDate, timeZone) {
   const today = nowZonedParts(timeZone).date;
